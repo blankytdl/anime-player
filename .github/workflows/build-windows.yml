@@ -158,12 +158,17 @@ jobs:
             Write-Host "[present] $path"
           }
 
-          # Capture all output before displaying one line; piping directly to Select-Object
-          # can close mpv's stdout early and make an otherwise successful launch exit nonzero.
-          $mpvVersionOutput = & '.\dist\mpv-thumb\mpv.exe' --no-config --version 2>&1
-          $mpvExitCode = $LASTEXITCODE
-          $mpvVersionOutput | Select-Object -First 1
-          if ($mpvExitCode -ne 0) { throw 'The standalone thumbfast mpv runtime could not start; check its bundled DLLs.' }
+          # Capture stdout/stderr to files; a pipe can close early while mpv prints its build details.
+          $mpvExe = (Resolve-Path 'dist/mpv-thumb/mpv.exe').Path
+          $mpvStdout = Join-Path $env:RUNNER_TEMP 'mpv-thumbfast-stdout.txt'
+          $mpvStderr = Join-Path $env:RUNNER_TEMP 'mpv-thumbfast-stderr.txt'
+          $mpvProcess = Start-Process -FilePath $mpvExe -ArgumentList @('--no-config', '--version') -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput $mpvStdout -RedirectStandardError $mpvStderr
+          $mpvText = (@(Get-Content -LiteralPath $mpvStdout -ErrorAction SilentlyContinue) + @(Get-Content -LiteralPath $mpvStderr -ErrorAction SilentlyContinue)) -join [Environment]::NewLine
+          if ($mpvText -notmatch '(?m)^mpv v\d') {
+            throw "The standalone thumbfast mpv did not emit its version banner (exit $($mpvProcess.ExitCode)). Output: $mpvText"
+          }
+          $mpvFirstLine = ($mpvText -split '\r?\n' | Select-Object -First 1)
+          Write-Host "Standalone thumbfast runtime started: $mpvFirstLine"
 
           # The portable config must not retain an absolute path from the GitHub runner.
           $thumbfastConf = 'dist/portable_config/script-opts/thumbfast.conf'
