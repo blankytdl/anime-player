@@ -98,7 +98,28 @@ $MpvFolder = Join-Path $ProjectRoot 'mpv-exe'
 Clear-Folder $DllFolder
 Clear-Folder $MpvFolder
 Copy-Item -LiteralPath $LibMpvFiles[0].FullName -Destination (Join-Path $DllFolder 'libmpv-2.dll') -Force
-Copy-Item -LiteralPath $MpvExeFiles[0].FullName -Destination (Join-Path $MpvFolder 'mpv.exe') -Force
+
+# Keep the complete standalone MPV runtime together. thumbfast launches this executable
+# as a separate process, so copying mpv.exe alone is not enough on a clean/moved install.
+$MpvRuntimeDirectory = $MpvExeFiles[0].Directory.FullName
+Get-ChildItem -LiteralPath $MpvRuntimeDirectory -Force |
+    ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $MpvFolder -Recurse -Force }
+
+# Some Shinchiro packages omit libmpv-2.dll from the standalone archive. Supply the
+# matching DLL from the mpv-dev archive (same release tag) if it is not already present.
+$MpvRuntimeLib = Join-Path $MpvFolder 'libmpv-2.dll'
+if (-not (Test-Path -LiteralPath $MpvRuntimeLib -PathType Leaf)) {
+    Copy-Item -LiteralPath $LibMpvFiles[0].FullName -Destination $MpvRuntimeLib -Force
+}
+
+# Also bring across any DLL companions shipped in the development archive when needed.
+Get-ChildItem -LiteralPath $DevExtract -Filter '*.dll' -File -Recurse |
+    ForEach-Object {
+        $TargetDll = Join-Path $MpvFolder $_.Name
+        if (-not (Test-Path -LiteralPath $TargetDll -PathType Leaf)) {
+            Copy-Item -LiteralPath $_.FullName -Destination $TargetDll -Force
+        }
+    }
 
 # 3. Official Gyan.dev FFmpeg 9.0.2 release essentials package.
 $FfmpegUrl = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.7z'
