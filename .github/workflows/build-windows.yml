@@ -87,11 +87,7 @@ jobs:
             throw 'build.bat is missing from the extracted project.'
           }
           if (-not (Test-Path -LiteralPath (Join-Path $project 'tools/ci/fetch-dependencies.ps1'))) {
-            Write-Warning 'CPU-safe dependency fetch script is absent from the uploaded source archive. Listing source files for a verified bootstrap.'
-            Get-ChildItem -LiteralPath $project -Recurse -File | ForEach-Object {
-              $relative = $_.FullName.Substring($project.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
-              Write-Host "[SOURCE] $relative"
-            }
+            throw 'CPU-safe dependency fetch script is missing after source preparation.'
           }
 
           $staleZip = Join-Path $root 'AnimePlayer (1).zip'
