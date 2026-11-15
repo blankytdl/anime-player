@@ -6,7 +6,7 @@ cd /d "%~dp0"
 rem ======================= OPTIONS =======================
 rem CONFIG_MODE: APPDATA  = install the config to %%APPDATA%%\mpv (what the mpv-anime-build readme says; existing folder is backed up first)
 rem              PORTABLE = put it in dist\portable_config next to mpvnet.exe
-set CONFIG_MODE=APPDATA
+if not defined CONFIG_MODE set CONFIG_MODE=APPDATA
 rem POTPLAYER_WINS: 1 = PotPlayer's own keys win on a clash (the build's displaced action is moved or disabled), 0 = the anime build's keys win.
 rem                  Every decision is listed in key-conflicts.txt in the config folder.
 set POTPLAYER_WINS=1
@@ -27,14 +27,14 @@ rem =======================================================
 where dotnet >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] .NET SDK not found. Install the .NET 10 SDK from https://dotnet.microsoft.com/download then run build.bat again.
-  pause & exit /b 1
+  if not defined CI pause & exit /b 1
 )
 for /f "delims=" %%v in ('dotnet --version') do set SDKV=%%v
 echo Using .NET SDK %SDKV%
 echo %SDKV% | findstr /b "10." >nul
 if errorlevel 1 (
   echo [ERROR] The player targets net10.0 and needs the .NET 10 SDK, found %SDKV%.
-  pause & exit /b 1
+  if not defined CI pause & exit /b 1
 )
 
 if exist dist rmdir /s /q dist
@@ -46,19 +46,19 @@ if exist "%USERPROFILE%\.nuget\packages\microsoft.netcore.app.runtime.win-x64" r
 echo.
 echo ===== [1/3] Player - mpvnet.exe =====
 call :restore "src\MpvNet.Windows\MpvNet.Windows.csproj"
-if errorlevel 1 ( echo [ERROR] Package restore failed - check your internet connection or set NUGET_SOURCE at the top of build.bat. & pause & exit /b 1 )
+if errorlevel 1 ( echo [ERROR] Package restore failed - check your internet connection or set NUGET_SOURCE at the top of build.bat. & if not defined CI pause & exit /b 1 )
 set APBUILD=0
 if exist "BUILD.txt" set /p APBUILD=<"BUILD.txt"
 echo AnimePlayer build !APBUILD!
 dotnet publish "src\MpvNet.Windows\MpvNet.Windows.csproj" -c Release --no-restore -o "dist" -p:FileVersion=7.1.2.!APBUILD! -p:AssemblyVersion=7.1.2.!APBUILD! -p:InformationalVersion=7.1.2.!APBUILD!
-if errorlevel 1 ( echo [ERROR] Player build failed. Copy the errors above and send them to me. & pause & exit /b 1 )
+if errorlevel 1 ( echo [ERROR] Player build failed. Copy the errors above and send them to me. & if not defined CI pause & exit /b 1 )
 
 echo.
 echo ===== [2/3] Library - AnimeLibrary.exe =====
 call :restore "AnimeLibrary\AnimeLibrary.csproj"
-if errorlevel 1 ( echo [ERROR] Package restore failed. & pause & exit /b 1 )
+if errorlevel 1 ( echo [ERROR] Package restore failed. & if not defined CI pause & exit /b 1 )
 dotnet publish "AnimeLibrary\AnimeLibrary.csproj" -c Release --no-restore -o "dist"
-if errorlevel 1 ( echo [ERROR] Library build failed. Copy the errors above and send them to me. & pause & exit /b 1 )
+if errorlevel 1 ( echo [ERROR] Library build failed. Copy the errors above and send them to me. & if not defined CI pause & exit /b 1 )
 
 echo.
 echo ===== [3/3] Runtime files and config =====
@@ -99,7 +99,7 @@ if not "!CFG_STATUS!"=="ok" ( echo [WARN] The config was NOT installed - read di
 echo.
 echo Done - AnimePlayer build !APBUILD!. Output folder: %~dp0dist   - mpvnet.exe and AnimeLibrary.exe
 if "!MISSING!"=="1" echo Fix the [WARN] lines above and run build.bat again.
-pause
+if not defined CI pause
 exit /b 0
 
 rem =====================================================================================================
