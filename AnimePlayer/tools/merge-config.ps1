@@ -424,10 +424,15 @@ catch { Fail-Note 'input.conf' $_ }
 try {
     $tf = [System.IO.Path]::Combine($Cfg, 'script-opts\thumbfast.conf')
     $tfWanted = [ordered]@{ 'spawn_first' = 'yes'; 'network' = 'no'; 'hwdec' = 'no' }
-    if ($MpvExe -ne '') { $tfWanted['mpv_path'] = $MpvExe }
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($tf)) | Out-Null
     $tfLines = @()
     if ([System.IO.File]::Exists($tf)) { Backup-Once $tf; $tfLines = @(Read-Lines $tf) }
+
+    # Never persist the build runner's absolute mpv.exe path here. It becomes stale
+    # as soon as the portable player folder is moved. 00-thumbfast-path.lua resolves
+    # the executable beside the running frontend every time mpv.net starts.
+    $tfLines = @($tfLines | Where-Object { $_ -notmatch '^\s*mpv_path\s*=' })
+
     foreach ($k in $tfWanted.Keys) {
         $found = $false
         for ($i = 0; $i -lt $tfLines.Count; $i++) {
