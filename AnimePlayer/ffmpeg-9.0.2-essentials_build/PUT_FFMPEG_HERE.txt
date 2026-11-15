@@ -1,0 +1,6 @@
+Put the extracted contents of ffmpeg-9.0.2-essentials_build.zip in THIS folder, so that this file exists:
+
+    ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe
+
+(Download: https://www.gyan.dev/ffmpeg/builds/  ->  "release essentials".)
+build.bat copies ffmpeg.exe and ffprobe.exe next to mpvnet.exe. It is used by the Subtitle Sync window (F6).

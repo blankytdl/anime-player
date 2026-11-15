@@ -1,0 +1,7 @@
+{
+ "id": "queue-tab-index",
+ "file": "scripts/uosc/main.lua",
+ "marker": "items[index + 1] = {",
+ "find": "\t\t\titems[index] = {\n\t\t\t\ttitle = (not force_filename and title) and title\n",
+ "replace": "\t\t\titems[index + 1] = {  -- [AnimePlayer: queue tab] row 1 is the Queue entry\n\t\t\t\ttitle = (not force_filename and title) and title\n"
+}

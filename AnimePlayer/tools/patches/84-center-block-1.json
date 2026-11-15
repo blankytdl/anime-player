@@ -1,0 +1,7 @@
+{
+ "id": "center-block-1",
+ "file": "scripts/uosc/elements/Controls.lua",
+ "marker": "[AP25: centred block 1]",
+ "find": "\tlocal function place(list, start_x, avail, align_right)",
+ "replace": "\tlocal function place(list, start_x, avail, align_right, dx) -- [AP25: centred block 1] dx shifts the whole block"
+}

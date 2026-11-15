@@ -1,0 +1,7 @@
+{
+ "id": "menu-open-flag-2",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: menu open flag 2]",
+ "find": "\tmp.set_property_native('user-data/uosc/menu/type', nil)\nend\n",
+ "replace": "\tmp.set_property_native('user-data/uosc/menu/type', nil)\n\tif not self.is_being_replaced then mp.set_property('user-data/ap/menu-open', 'no') end -- [AP25: menu open flag 2]\nend\n"
+}

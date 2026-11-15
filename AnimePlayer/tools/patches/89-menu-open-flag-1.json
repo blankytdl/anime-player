@@ -1,0 +1,7 @@
+{
+ "id": "menu-open-flag-1",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: menu open flag 1]",
+ "find": "\tmp.set_property_native('user-data/uosc/menu/type', self.type or 'undefined')\n",
+ "replace": "\tmp.set_property_native('user-data/uosc/menu/type', self.type or 'undefined')\n\tmp.set_property('user-data/ap/menu-open', 'yes') -- [AP25: menu open flag 1] read by the player window (no window drag while a menu is open)\n"
+}

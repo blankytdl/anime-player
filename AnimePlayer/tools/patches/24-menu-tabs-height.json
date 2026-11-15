@@ -1,0 +1,7 @@
+{
+ "id": "24-menu-tabs-height",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AnimePlayer: menu tabs height]",
+ "find": "\t\tlocal footnote_height = self.font_size * 1.5\n\t\tlocal max_height = height_available - title_height - footnote_height\n",
+ "replace": "\t\tif menu.tabs and menu.is_root then title_height = title_height + self.scroll_step end  -- [AnimePlayer: menu tabs height] room for the tab row above the title\n\t\tlocal footnote_height = self.font_size * 1.5\n\t\tlocal max_height = height_available - title_height - footnote_height\n"
+}

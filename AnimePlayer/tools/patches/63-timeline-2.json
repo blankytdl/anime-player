@@ -1,0 +1,7 @@
+{
+ "id": "timeline-2",
+ "file": "scripts/uosc/elements/Timeline.lua",
+ "marker": "[AP7:auto-Timeline-lua-2]",
+ "find": "\tass:new_event()\n\tass:pos(0, 0)\n\tass:append('{\\\\rDefault\\\\an7\\\\blur0\\\\bord0\\\\1c&H' .. bg .. '}')\n\tass:opacity(config.opacity.timeline)\n\tass:draw_start()\n\tass:rect_cw(bax, bay, fax, bby) --left of progress\n\tass:rect_cw(fbx, bay, bbx, bby) --right of progress",
+ "replace": "\tass:new_event() -- [AP7:auto-Timeline-lua-2]\n\tass:pos(0, 0)\n\tass:append('{\\\\rDefault\\\\an7\\\\blur0\\\\bord0\\\\1c&H' .. bg .. '}')\n\tass:opacity(0)  -- [AP14: no black strip] the dark band behind the bar is gone, only the pill is drawn\n\tass:draw_start()\n\tass:rect_cw(bax, bay, fax, bby) --left of progress\n\tass:rect_cw(fbx, bay, bbx, bby) --right of progress"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "ctrl-osd-label",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "GPU Upscaler",
+ "find": "{\\\\b1}Nvidia VSR:{\\\\b0}",
+ "replace": "{\\\\b1}GPU Upscaler:{\\\\b0}"
+}

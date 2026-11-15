@@ -1,0 +1,7 @@
+{
+ "id": "menu-4",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP7:auto-Menu-lua-4]",
+ "find": "\nfunction Menu:on_global_mouse_move()\n\tself.mouse_nav = true\n\tif self.drag_last_y then\n\t\tself.is_dragging = self.is_dragging or math.abs(cursor.y - self.drag_last_y) >= 10\n\t\tif self.is_dragging then\n\t\t\tlocal distance = self.drag_last_y - cursor.y",
+ "replace": "\nfunction Menu:on_global_mouse_move() -- [AP7:auto-Menu-lua-4]\n\tself.mouse_nav = true\n\t-- [AP8: drag reorder] press a row of a reorderable list and move: the row follows the cursor (no scrolling by dragging in these lists)\n\tlocal reorderable = self.current.on_move and not (self.current.search and self.current.search.query ~= '')  -- [AP15]\n\tif self.drag_last_y and not self.reorder and not self.is_dragging and self.press_index and reorderable\n\t\tand math.abs(cursor.y - (self.press_y or cursor.y)) >= 5 then\n\t\tlocal item = self.current.items[self.press_index]\n\t\tif item and item.selectable ~= false and not item.items then\n\t\t\tself.reorder = {from = self.press_index}\n\t\t\tself.is_dragging = true\n\t\t\tself:select_index(self.press_index, self.current.id)\n\t\tend\n\tend\n\tif self.reorder then\n\t\trequest_render()\n\t\treturn\n\tend\n\tif self.drag_last_y and not reorderable then\n\t\tself.is_dragging = self.is_dragging or math.abs(cursor.y - self.drag_last_y) >= 10\n\t\tif self.is_dragging then\n\t\t\tlocal distance = self.drag_last_y - cursor.y"
+}

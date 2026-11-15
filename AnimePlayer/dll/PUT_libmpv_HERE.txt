@@ -1,0 +1,5 @@
+Put libmpv-2.dll in THIS folder.
+
+Download "mpv-dev-x86_64-....7z" from https://github.com/shinchiro/mpv-winbuild-cmake/releases , open it and copy
+libmpv-2.dll here. (Use the x86_64 build, NOT x86_64-v3, if your i5-3470 has no AVX2 - Ivy Bridge does not.)
+build.bat copies every .dll from this folder next to mpvnet.exe.

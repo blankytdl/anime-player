@@ -1,0 +1,7 @@
+{
+ "id": "29-playlist-activate",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: queue as a tab, activate]",
+ "find": "\t\tif event.value == 'ap_queue' then mp.commandv('script-message', 'ap-queue-menu') return end  -- [AnimePlayer: queue tab]\n",
+ "replace": "\t\t-- [AnimePlayer: queue as a tab, activate] (the Queue row is gone: Queue is a tab next to Playlist)\n"
+}

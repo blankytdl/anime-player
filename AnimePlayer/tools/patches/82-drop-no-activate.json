@@ -1,0 +1,7 @@
+{
+ "id": "drop-no-activate",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: drop is not a click]",
+ "find": "\tif self.proximity_raw <= -self.padding and self.drag_last_y and not self.is_dragging\n\tand self.mouse_hovered_index == self.current.selected_index then",
+ "replace": "\t-- [AP25: drop is not a click] releasing a dragged row must only select it, never open (play) it\n\tif self.proximity_raw <= -self.padding and self.drag_last_y and not self.is_dragging\n\tand (mp.get_time() - (self.drop_time or -10)) > 0.6\n\tand self.mouse_hovered_index == self.current.selected_index then"
+}

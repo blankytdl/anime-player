@@ -1,0 +1,7 @@
+{
+ "id": "autoload-1",
+ "file": "scripts/autoload.lua",
+ "marker": "[AP7:auto-autoload-lua-1]",
+ "find": "end\n\nlocal function find_and_add_entries()\n    local aborted = mp.get_property_native(\"playback-abort\")\n    if aborted then\n        msg.debug(\"stopping: playback aborted\")",
+ "replace": "end -- [AP7:auto-autoload-lua-1]\n\nlocal function find_and_add_entries()\n    -- [AP16: clear playlist] \"Remove all videos\" sets this until the playing file ends, otherwise the folder would be put straight back\n    if mp.get_property_native(\"user-data/ap/no-autoload\") then\n        msg.debug(\"stopping: the playlist was cleared on purpose\")\n        return\n    end\n    local aborted = mp.get_property_native(\"playback-abort\")\n    if aborted then\n        msg.debug(\"stopping: playback aborted\")"
+}

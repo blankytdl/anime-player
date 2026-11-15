@@ -1,0 +1,7 @@
+{
+ "id": "30-playlist-move",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: queue as a tab, move]",
+ "find": "\t\t-- [AnimePlayer: queue tab] menu row 1 is the Queue entry, playlist item n is row n + 1\n\t\tlocal from, to = event.from_index - 1, event.to_index - 1\n\t\tif from < 1 or to < 1 then return end\n\t\tmp.commandv('playlist-move', tostring(from - 1), tostring(to - (to > from and 0 or 1)))\n",
+ "replace": "\t\t-- [AnimePlayer: queue as a tab, move] row n is playlist item n again\n\t\tmp.commandv('playlist-move', tostring(event.from_index - 1), tostring(event.to_index - (event.to_index > event.from_index and 0 or 1)))\n"
+}

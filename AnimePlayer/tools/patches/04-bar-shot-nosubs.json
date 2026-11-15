@@ -1,0 +1,7 @@
+{
+ "id": "bar-shot-nosubs",
+ "file": "script-opts/uosc.conf",
+ "marker": "screenshot video",
+ "find": ",command:camera_alt:screenshot?Screenshot,",
+ "replace": ",command:camera_alt:screenshot?Screenshot,<video>command:add_a_photo:screenshot video?Screenshot without subtitles,"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "pip-2",
+ "file": "scripts/pip.lua",
+ "marker": "[AP7:auto-pip-lua-2]",
+ "find": "        mp.set_property_native(\"keepaspect-window\", false)\n        mp.set_property(\"geometry\", \"35%x35%-25-25\")\n    else\n        mp.set_property_native(\"keepaspect-window\", true)\n        mp.set_property(\"geometry\", \"30%x30%-25-25\")\n    end\n",
+ "replace": "        mp.set_property_native(\"keepaspect-window\", false) -- [AP7:auto-pip-lua-2]\n        mp.set_property(\"geometry\", \"35%x35%-25-25\")\n    else\n        mp.set_property_native(\"keepaspect-window\", false)  -- [AP14: free resize in PiP]\n        mp.set_property(\"geometry\", \"30%x30%-25-25\")\n    end\n"
+}

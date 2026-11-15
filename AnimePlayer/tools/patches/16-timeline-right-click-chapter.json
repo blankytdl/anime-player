@@ -1,0 +1,7 @@
+{
+ "id": "right-click-chapter",
+ "file": "scripts/uosc/elements/Timeline.lua",
+ "marker": "[AnimePlayer: right-click chapter]",
+ "find": "\t\tif #options.timeline_mbtn_right > 0 then\n\t\t\tcursor:zone('secondary_down', self, function()\n\t\t\t\tself:cursor_command(options.timeline_mbtn_right)\n\t\t\tend)\n\t\tend\n",
+ "replace": "\t\t-- [AnimePlayer: right-click chapter] right-click on the progress bar jumps to the chapter under the mouse pointer\n\t\t-- (the last chapter that starts at or before that point; without chapters it seeks to the pointer position). A custom\n\t\t-- `timeline_mbtn_right` command in uosc.conf still wins when it is set.\n\t\tcursor:zone('secondary_down', self, function()\n\t\t\tif #options.timeline_mbtn_right > 0 then self:cursor_command(options.timeline_mbtn_right) return end\n\t\t\tif not (state.time and state.duration) then return end\n\t\t\tlocal t = self:get_time_at_x(cursor.x)\n\t\t\tlocal target = nil\n\t\t\tfor _, chapter in ipairs(state.chapters or {}) do\n\t\t\t\tif chapter.time <= t + 0.05 and (not target or chapter.time > target) then target = chapter.time end\n\t\t\tend\n\t\t\tif #(state.chapters or {}) > 0 and not target then target = 0 end\n\t\t\tmp.commandv('seek', target or t, 'absolute+exact')\n\t\tend)\n"
+}

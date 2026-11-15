@@ -1,0 +1,7 @@
+{
+ "id": "menu-stable-ids",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AnimePlayer: stable ids]",
+ "find": "menu.id = (parent_id and parent_id .. ' > ' or '') .. (menu_data.title or i)",
+ "replace": "menu.id = (parent_id and parent_id .. ' > ' or '') .. tostring(menu_data.title or i):gsub(':.*$', '') -- [AnimePlayer: stable ids] 'Mode: ON' -> 'Mode': state in a title must not change the id, or the open submenu is lost on every broadcast"
+}

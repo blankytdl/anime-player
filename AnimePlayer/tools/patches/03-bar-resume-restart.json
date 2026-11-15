@@ -1,0 +1,7 @@
+{
+ "id": "bar-resume-restart",
+ "file": "script-opts/uosc.conf",
+ "marker": "ap-restart-now",
+ "find": ",playlist,command:history:script-binding uosc/history?History,",
+ "replace": ",playlist,command:history:script-binding uosc/history?History,command:restore:script-message ap-resume-now?Resume where you stopped,command:replay:script-message ap-restart-now?Start from the beginning,"
+}

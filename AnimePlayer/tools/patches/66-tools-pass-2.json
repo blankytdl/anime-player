@@ -1,0 +1,7 @@
+{
+ "id": "tools-pass-2",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP7:auto-menus-lua-2]",
+ "find": "\t\t---@type MenuAction[]\n\t\t-- [AnimePlayer: copy actions] the original appended move/remove buttons to opts.actions on EVERY open (duplicates)\n\t\tlocal actions = {}\n\t\tfor _, a in ipairs(opts.actions or {}) do actions[#actions + 1] = a end\n\t\tif opts.on_move then\n\t\t\tactions[#actions + 1] = {\n\t\t\t\tname = 'move_up',\n\t\t\t\ticon = 'arrow_upward',",
+ "replace": "\t\t---@type MenuAction[] -- [AP7:auto-menus-lua-2]\n\t\t-- [AnimePlayer: copy actions] the original appended move/remove buttons to opts.actions on EVERY open (duplicates)\n\t\tlocal actions = {}\n\t\t-- [AP16: no crowding] in a narrow window fewer row buttons (up / down are replaced by dragging / ctrl+up/down) so they never cover the title\n\t\tlocal narrow = display.width > 0 and display.width < 620\n\t\tlocal base_actions = type(opts.actions) == 'function' and opts.actions(narrow) or opts.actions or {}\n\t\tfor _, a in ipairs(base_actions) do actions[#actions + 1] = a end\n\t\tif opts.on_move and not narrow then\n\t\t\tactions[#actions + 1] = {\n\t\t\t\tname = 'move_up',\n\t\t\t\ticon = 'arrow_upward',"
+}

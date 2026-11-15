@@ -1,0 +1,7 @@
+{
+ "id": "menus-actions-copy",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "AnimePlayer: copy actions",
+ "find": "\t\tlocal actions = opts.actions or {}\n",
+ "replace": "\t\t-- [AnimePlayer: copy actions] the original appended move/remove buttons to opts.actions on EVERY open (duplicates)\n\t\tlocal actions = {}\n\t\tfor _, a in ipairs(opts.actions or {}) do actions[#actions + 1] = a end\n"
+}

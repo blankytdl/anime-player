@@ -1,0 +1,7 @@
+{
+ "id": "pip-3",
+ "file": "scripts/pip.lua",
+ "marker": "[AP7: no shuffle button in PiP]",
+ "find": "\n    local opts = mp.get_property_native(\"script-opts\") or {}\n    if not is_pip then original_uosc_controls = opts[\"uosc-controls\"] end\n    opts[\"uosc-controls\"] = \"cycle:repeat:loop-file:no/inf!?Loop File,command:shuffle:playlist-shuffle?Shuffle Playlist,space,prev,<has_chapter>command:fast_rewind:add chapter -1?Prev Chapter,play-pause,<has_chapter>command:fast_forward:add chapter 1?Next Chapter,next,space,command:picture_in_picture_alt:script-message toggle-pip?PiP Mode,fullscreen\"\n    mp.set_property_native(\"script-opts\", opts)\n\n    is_pip = true",
+ "replace": "\n    local opts = mp.get_property_native(\"script-opts\") or {}\n    if not is_pip then original_uosc_controls = opts[\"uosc-controls\"] end\n    opts[\"uosc-controls\"] = \"cycle:repeat:loop-file:no/inf!?Loop File,space,prev,<has_chapter>command:fast_rewind:add chapter -1?Prev Chapter,play-pause,<has_chapter>command:fast_forward:add chapter 1?Next Chapter,next,space,command:picture_in_picture_alt:script-message toggle-pip?PiP Mode,fullscreen\"  -- [AP7: no shuffle button in PiP]\n    mp.set_property_native(\"script-opts\", opts)\n\n    is_pip = true"
+}

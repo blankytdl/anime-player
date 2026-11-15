@@ -1,0 +1,7 @@
+{
+ "id": "broadcast-guard",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: broadcast guard]",
+ "find": "        local items = create_default_menu_items()\n        local menu_json = utils.format_json({ type = 'menu', items = items })\n        mp.commandv(\"script-message-to\", mp.get_script_name(), \"update-menu\", menu_json)",
+ "replace": "        -- [AnimePlayer: broadcast guard] only when the menu really changed; an error cannot break the menu\n        local ok = pcall(function()\n            local items = create_default_menu_items()\n            local menu_json = utils.format_json({ type = 'menu', items = items })\n            if menu_json == AP_LAST_MENU_JSON then return end\n            AP_LAST_MENU_JSON = menu_json\n            mp.commandv(\"script-message-to\", mp.get_script_name(), \"update-menu\", menu_json)\n        end)"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "button-4",
+ "file": "scripts/uosc/elements/Button.lua",
+ "marker": "[AP7:auto-Button-lua-4]",
+ "find": "\t\t\tradius = state.radius,\n\t\t\topacity = visibility * background_opacity,\n\t\t})\n\tend\n\n\t-- Tooltip on hover",
+ "replace": "\t\t\tradius = state.radius, -- [AP7:auto-Button-lua-4]\n\t\t\topacity = visibility * background_opacity,\n\t\t})\n\tend\n\n\t-- [AP14: press indicator] a ripple spreads from the middle and the icon dips for a moment after every click\n\tlocal pop = 0\n\tif self.click_time then\n\t\tlocal p = (mp.get_time() - self.click_time) / 0.42\n\t\tif p >= 1 then\n\t\t\tself.click_time = nil\n\t\telse\n\t\t\tlocal cx, cy = (self.ax + self.bx) / 2, (self.ay + self.by) / 2\n\t\t\tlocal rr = (self.by - self.ay) * (0.25 + 0.65 * p)\n\t\t\tass:circle(cx, cy, rr, {color = self.active and own_bg or foreground, opacity = visibility * 0.45 * (1 - p) ^ 2, clip = '\\\\clip(' .. round(self.ax) .. ',' .. round(self.ay) .. ',' .. round(self.bx) .. ',' .. round(self.by) .. ')'})\n\t\t\tpop = math.sin(math.pi * math.min(p * 1.6, 1))\n\t\t\trequest_render()\n\t\tend\n\tend\n\n\t-- Tooltip on hover"
+}

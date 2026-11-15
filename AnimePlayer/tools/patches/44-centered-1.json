@@ -1,0 +1,7 @@
+{
+ "id": "centered-1",
+ "file": "scripts/uosc/elements/Controls.lua",
+ "marker": "[AP7: centered transport]",
+ "find": "\tself.by = Elements:v('timeline', 'ay', display.height - window_border) - margin\n\tself.ax, self.ay = window_border + margin, self.by - size\n\n\t-- Controls\n\tlocal available_width, statics_width = self.bx - self.ax, 0\n\tlocal min_content_width = statics_width",
+ "replace": "\tself.by = Elements:v('timeline', 'ay', display.height - window_border) - margin\n\tself.ax, self.ay = window_border + margin, self.by - size\n\n\t-- [AP7: centered transport] the transport buttons (between the 2nd and 3rd `space`) are laid out first: always centered on the bar, never hidden\n\t-- before the other buttons, never squashed. Other groups give way when the window is narrow.\n\tif self:layout_centered(size, spacing) then return end\n\n\t-- Controls\n\tlocal available_width, statics_width = self.bx - self.ax, 0\n\tlocal min_content_width = statics_width"
+}

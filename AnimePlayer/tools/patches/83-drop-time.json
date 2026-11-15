@@ -1,0 +1,7 @@
+{
+ "id": "drop-time",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: drop time]",
+ "find": "\t\t-- [AP8: drag reorder] drop\n\t\tlocal from, to = self.reorder.from, self.mouse_hovered_index\n\t\tself.reorder = nil",
+ "replace": "\t\t-- [AP8: drag reorder] drop\n\t\tlocal from, to = self.reorder.from, self.mouse_hovered_index\n\t\tself.reorder = nil\n\t\tself.drop_time = mp.get_time()  -- [AP25: drop time]"
+}

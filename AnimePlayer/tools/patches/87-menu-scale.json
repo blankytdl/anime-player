@@ -1,0 +1,7 @@
+{
+ "id": "menu-scale",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: menu scale]",
+ "find": "\tself.item_height = round(options.menu_item_height * state.scale)\n\tself.min_width = round(options.menu_min_width * state.scale)\n",
+ "replace": "\t-- [AP25: menu scale] rows a little SMALLER than stock (more rows fit); the panel itself grows with the window (see the width patch below)\n\tself.item_height = round(options.menu_item_height * state.scale * 0.92)\n\tself.min_width = round(options.menu_min_width * state.scale)\n"
+}

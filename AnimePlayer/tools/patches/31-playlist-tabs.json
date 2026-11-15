@@ -1,0 +1,7 @@
+{
+ "id": "31-playlist-tabs",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: playlist tabs]",
+ "find": "\ttitle = t('Playlist (Type to Search)'),\n\ttype = 'playlist',\n",
+ "replace": "\ttitle = t('Playlist (Type to Search)'),\n\ttype = 'playlist',\n\ttabs = {{title = t('Playlist'), active = true}, {title = t('Queue'), value = 'script-message ap-queue-menu'}},  -- [AnimePlayer: playlist tabs]\n"
+}

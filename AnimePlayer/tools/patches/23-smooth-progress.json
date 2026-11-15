@@ -1,0 +1,7 @@
+{
+ "id": "smooth-progress",
+ "file": "scripts/uosc/elements/Timeline.lua",
+ "marker": "[AnimePlayer: smooth progress]",
+ "find": "\tlocal progress = state.time / state.duration\n\tlocal is_line = options.timeline_style == 'line'\n",
+ "replace": "\tlocal progress = state.time / state.duration\n\t-- [AnimePlayer: smooth progress] the bar glides to the new position instead of ticking forward; a seek (jump of more than 4 %) lands at once\n\tdo\n\t\tlocal now = mp.get_time()\n\t\tlocal dt = math.min(0.1, math.max(0, now - (self.ap_last_time or now)))\n\t\tself.ap_last_time = now\n\t\tlocal shown = self.ap_shown or progress\n\t\tif math.abs(progress - shown) > 0.04 then shown = progress else shown = shown + (progress - shown) * math.min(1, dt * 10) end\n\t\tself.ap_shown = shown\n\t\tif math.abs(progress - shown) > 0.0002 and not state.pause then request_render() end\n\t\tprogress = shown\n\tend\n\tlocal is_line = options.timeline_style == 'line'\n"
+}

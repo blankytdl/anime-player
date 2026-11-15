@@ -1,0 +1,7 @@
+{
+ "id": "button-5",
+ "file": "scripts/uosc/elements/Button.lua",
+ "marker": "[AP7:auto-Button-lua-5]",
+ "find": "\n\t-- Icon\n\tlocal x, y = round(self.ax + (self.bx - self.ax) / 2), round(self.ay + (self.by - self.ay) / 2)\n\tass:icon(x, y, self.font_size, self.icon, {\n\t\tcolor = foreground,\n\t\tborder = self.active and 0 or options.text_border * state.scale,\n\t\tborder_color = background,",
+ "replace": "\n\t-- Icon -- [AP7:auto-Button-lua-5]\n\tlocal x, y = round(self.ax + (self.bx - self.ax) / 2), round(self.ay + (self.by - self.ay) / 2)\n\tass:icon(x, y, self.font_size * (1 - 0.18 * pop), self.icon, {\n\t\tcolor = foreground,\n\t\tborder = self.active and 0 or options.text_border * state.scale,\n\t\tborder_color = background,"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "27-menu-tabs-pass",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AnimePlayer: menu tabs pass]",
+ "find": "\t\t\tfootnote = opts.footnote,\n\t\t\titems = initial_items,\n",
+ "replace": "\t\t\tfootnote = opts.footnote,\n\t\t\ttabs = opts.tabs,  -- [AnimePlayer: menu tabs pass]\n\t\t\titems = initial_items,\n"
+}

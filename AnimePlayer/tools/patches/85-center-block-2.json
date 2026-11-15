@@ -1,0 +1,7 @@
+{
+ "id": "center-block-2",
+ "file": "scripts/uosc/elements/Controls.lua",
+ "marker": "[AP25: centred block 2]",
+ "find": "\t\tlocal x = align_right and (start_x - total_w) or start_x\n",
+ "replace": "\t\tlocal x = (align_right and (start_x - total_w) or start_x) + (dx or 0) -- [AP25: centred block 2]\n"
+}

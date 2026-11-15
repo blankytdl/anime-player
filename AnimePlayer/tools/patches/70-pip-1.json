@@ -1,0 +1,7 @@
+{
+ "id": "pip-1",
+ "file": "scripts/pip.lua",
+ "marker": "[AP7:auto-pip-lua-1]",
+ "find": "local saved_ontop = false\nlocal saved_geom = {w=1280, h=720, x=100, y=100}\nlocal saved_scale = 1.0\nlocal saved_keepaspect = true\nlocal original_uosc_controls = nil\nlocal saved_title = nil -- Store original title for Linux WM hooks\n",
+ "replace": "local saved_ontop = false -- [AP7:auto-pip-lua-1]\nlocal saved_geom = {w=1280, h=720, x=100, y=100}\nlocal saved_scale = 1.0\nlocal saved_keepaspect = false  -- [AP14: free resize]\nlocal original_uosc_controls = nil\nlocal saved_title = nil -- Store original title for Linux WM hooks\n"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "button-3",
+ "file": "scripts/uosc/elements/Button.lua",
+ "marker": "[AP7:auto-Button-lua-3]",
+ "find": "\tlocal ass = assdraw.ass_new()\n\tlocal is_clickable = self.is_clickable and self.on_click ~= nil\n\tlocal is_hover = self.proximity_raw <= 0\n\tlocal foreground = self.active and self.background or self.foreground\n\tlocal background = self.active and self.foreground or self.background\n\tlocal background_opacity = self.active and 1 or config.opacity.controls\n\n\tif is_hover and is_clickable and background_opacity < 0.3 then background_opacity = 0.3 end",
+ "replace": "\tlocal ass = assdraw.ass_new() -- [AP7:auto-Button-lua-3]\n\tlocal is_clickable = self.is_clickable and self.on_click ~= nil\n\tlocal is_hover = self.proximity_raw <= 0\n\tlocal own_fg, own_bg = self.foreground or fg, self.background or bg\n\tlocal foreground = self.active and own_bg or own_fg\n\tlocal background = self.active and own_fg or own_bg\n\tlocal background_opacity = self.active and 1 or config.opacity.controls\n\n\tif is_hover and is_clickable and background_opacity < 0.3 then background_opacity = 0.3 end"
+}

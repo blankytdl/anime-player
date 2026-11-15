@@ -1,0 +1,7 @@
+{
+ "id": "bar-frame-step",
+ "file": "script-opts/uosc.conf",
+ "marker": "frame-back-step",
+ "find": ",play-pause,",
+ "replace": ",<video>command:arrow_left:frame-back-step?Previous frame,play-pause,<video>command:arrow_right:frame-step?Next frame,"
+}

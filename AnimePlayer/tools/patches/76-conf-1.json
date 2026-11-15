@@ -1,0 +1,7 @@
+{
+ "id": "conf-1",
+ "file": "script-opts/uosc.conf",
+ "marker": "[AP7:auto-uosc-conf-1]",
+ "find": "window_border_size=1\n\n# --- TIMELINE ---\ntimeline_style=line\ntimeline_line_width=2\ntimeline_size=30\ntimeline_cache=yes\ntimeline_border=1\ntimeline_heatmap=overlay",
+ "replace": "window_border_size=1 # [AP7:auto-uosc-conf-1]\n\n# --- TIMELINE ---\ntimeline_style=bar\ntimeline_line_width=2\ntimeline_size=20\ntimeline_cache=yes\ntimeline_border=1\ntimeline_heatmap=overlay"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "close-2",
+ "file": "scripts/uosc/elements/TopBar.lua",
+ "marker": "[AP7:auto-TopBar-lua-2]",
+ "find": "\nfunction TopBar:render()\n\tlocal visibility = self:get_visibility()\n\tif visibility <= 0 then return end\n\tlocal ass = assdraw.ass_new()\n\t-- `by` might be artificially extended so people with low proximity options\n\t-- can still click on chapter button, so we can't use it for rendering.",
+ "replace": "\nfunction TopBar:render() -- [AP7:auto-TopBar-lua-2]\n\tlocal visibility = self:get_visibility()\n\tif visibility <= 0.3 then\n\t\tif self.ap_max_last then self.ap_max_last = nil; mp.set_property('user-data/ap/max-button', '') end   -- bar hidden: nothing to hit-test\n\t\tif visibility <= 0 then return end\n\tend\n\tlocal ass = assdraw.ass_new()\n\t-- `by` might be artificially extended so people with low proximity options\n\t-- can still click on chapter button, so we can't use it for rendering."
+}

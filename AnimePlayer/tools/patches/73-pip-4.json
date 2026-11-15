@@ -1,0 +1,7 @@
+{
+ "id": "pip-4",
+ "file": "scripts/pip.lua",
+ "marker": "[AP7:auto-pip-lua-4]",
+ "find": "        saved_ontop = mp.get_property_native(\"ontop\")\n        saved_geom = get_current_geometry()\n        saved_scale = mp.get_property_native(\"window-scale\") or 1.0\n        saved_keepaspect = mp.get_property_native(\"keepaspect-window\") or true\n\n        -- Fallback to media-title or \"mpv\" if title is nil\n        saved_title = mp.get_property(\"title\") or mp.get_property(\"media-title\") or \"mpv\"",
+ "replace": "        saved_ontop = mp.get_property_native(\"ontop\") -- [AP7:auto-pip-lua-4]\n        saved_geom = get_current_geometry()\n        saved_scale = mp.get_property_native(\"window-scale\") or 1.0\n        saved_keepaspect = false  -- [AP14: the window is never aspect-locked]\n\n        -- Fallback to media-title or \"mpv\" if title is nil\n        saved_title = mp.get_property(\"title\") or mp.get_property(\"media-title\") or \"mpv\""
+}

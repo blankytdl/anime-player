@@ -1,0 +1,7 @@
+{
+ "id": "tools-pass-4",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP7:auto-menus-lua-4]",
+ "find": "\t\tend)\n\n\t\tmp.observe_property(opts.list_prop, 'native', handle_list_prop_change)\n\t\tif opts.active_prop then\n\t\t\tmp.observe_property(opts.active_prop, 'native', handle_active_prop_change)\n\t\tend",
+ "replace": "\t\tend) -- [AP7:auto-menus-lua-4]\n\n\t\tmp.observe_property(opts.list_prop, 'native', handle_list_prop_change)\n\t\tfor _, p in ipairs(extra_props) do mp.observe_property(p, 'native', handle_extra_prop_change) end\n\t\tmp.observe_property('osd-width', 'number', handle_width_change)\n\t\tif opts.active_prop then\n\t\t\tmp.observe_property(opts.active_prop, 'native', handle_active_prop_change)\n\t\tend"
+}

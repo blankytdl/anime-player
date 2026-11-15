@@ -1,0 +1,7 @@
+{
+ "id": "render-isolation",
+ "file": "scripts/uosc/lib/utils.lua",
+ "marker": "[AnimePlayer: render isolation]",
+ "find": "\t\t\tlocal result = element:maybe('render')\n\t\t\tif result then",
+ "replace": "\t\t\t-- [AnimePlayer: render isolation] a throwing element must never blank the whole UI: log it, skip it (a broken menu is closed), keep drawing\n\t\t\tlocal ok, result = pcall(element.maybe, element, 'render')\n\t\t\tif not ok then\n\t\t\t\tpcall(function()\n\t\t\t\t\tlocal f = io.open(mp.command_native({'expand-path', '~~/uosc-errors.log'}), 'a')\n\t\t\t\t\tif f then f:write(os.date('%Y-%m-%d %H:%M:%S'), '  render ', tostring(element.id or element.type or '?'), '\\n', tostring(result), '\\n\\n'); f:close() end\n\t\t\t\tend)\n\t\t\t\tresult = nil\n\t\t\t\tif element.id == 'menu' or element.type == 'menu' then pcall(function() element:destroy() end) end\n\t\t\tend\n\t\t\tif result then"
+}

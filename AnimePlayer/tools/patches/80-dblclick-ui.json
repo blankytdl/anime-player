@@ -1,0 +1,7 @@
+{
+ "id": "dblclick-ui",
+ "file": "scripts/uosc/lib/cursor.lua",
+ "marker": "[AP25: double-click on UI]",
+ "find": "\tnew_levels.mbtn_left_dbl = new_levels.mbtn_left == 2 and 2 or 0",
+ "replace": "\t-- [AP25: double-click on UI] over ANY uosc element (buttons, menus, bars) the double-click belongs to uosc and never reaches the global\n\t-- MBTN_LEFT_DBL binding; it only works on the bare video. (uosc used to ignore the 2nd click of a fast double click completely, so a\n\t-- menu row needed several clicks: it is now handled as a normal click below.)\n\tnew_levels.mbtn_left_dbl = new_levels.mbtn_left >= 1 and 2 or 0"
+}

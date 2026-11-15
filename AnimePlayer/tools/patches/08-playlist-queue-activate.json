@@ -1,0 +1,7 @@
+{
+ "id": "playlist-queue-activate",
+ "file": "scripts/uosc/main.lua",
+ "marker": "AnimePlayer: queue activate",
+ "find": "\ton_activate = function(event) mp.commandv('set', 'playlist-pos-1', tostring(event.value)) end,\n\ton_paste = function(event) mp.commandv('loadfile', tostring(event.value), 'append') end,\n",
+ "replace": "\t-- [AnimePlayer: queue activate]\n\ton_activate = function(event)\n\t\tif event.action == 'queue_tools' then\n\t\t\tmp.commandv('script-message', 'ap-queue-menu')\n\t\telseif event.action == 'play_next' or event.action == 'move_end' then\n\t\t\tlocal from = event.value - 1\n\t\t\tlocal cur = mp.get_property_number('playlist-pos', 0)\n\t\t\tlocal count = mp.get_property_number('playlist-count', 0)\n\t\t\tif event.action == 'play_next' then\n\t\t\t\tif from ~= cur and from ~= cur + 1 then mp.commandv('playlist-move', tostring(from), tostring(cur + 1)) end\n\t\t\telseif from ~= count - 1 then\n\t\t\t\tmp.commandv('playlist-move', tostring(from), tostring(count))\n\t\t\tend\n\t\telse\n\t\t\tmp.commandv('set', 'playlist-pos-1', tostring(event.value))\n\t\tend\n\tend,\n\ton_paste = function(event) mp.commandv('loadfile', tostring(event.value), 'append') end,\n"
+}

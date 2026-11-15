@@ -1,0 +1,7 @@
+{
+ "id": "error-guard",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: error guard]",
+ "find": "require('lib/std')\n",
+ "replace": "require('lib/std')\n\n-- [AnimePlayer: error guard] script-message handlers and timers run through pcall: an error is written to <config>/uosc-errors.log\n-- (send me that file) instead of silently stopping a redraw, and the rest of the UI keeps running.\ndo\n\tlocal log_path = mp.command_native({'expand-path', '~~/uosc-errors.log'})\n\tlocal function guard(where, fn)\n\t\tif type(fn) ~= 'function' then return fn end\n\t\treturn function(...)\n\t\t\tlocal ok, a, b, c = pcall(fn, ...)\n\t\t\tif not ok then\n\t\t\t\tlocal f = io.open(log_path, 'a')\n\t\t\t\tif f then f:write(os.date('%Y-%m-%d %H:%M:%S'), '  ', tostring(where), '\\n', tostring(a), '\\n\\n'); f:close() end\n\t\t\t\tmsg.error(tostring(where) .. ': ' .. tostring(a))\n\t\t\t\treturn nil\n\t\t\tend\n\t\t\treturn a, b, c\n\t\tend\n\tend\n\tlocal real_message, real_timeout = mp.register_script_message, mp.add_timeout\n\tmp.register_script_message = function(name, fn) return real_message(name, guard('script-message ' .. tostring(name), fn)) end\n\tmp.add_timeout = function(seconds, fn, ...) return real_timeout(seconds, guard('timeout', fn), ...) end\nend\n"
+}

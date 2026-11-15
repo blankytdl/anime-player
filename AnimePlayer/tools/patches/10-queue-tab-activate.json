@@ -1,0 +1,7 @@
+{
+ "id": "queue-tab-activate",
+ "file": "scripts/uosc/main.lua",
+ "marker": "event.value == 'ap_queue'",
+ "find": "\ton_activate = function(event)\n\t\tif event.action == 'queue_tools' then",
+ "replace": "\ton_activate = function(event)\n\t\tif event.value == 'ap_queue' then mp.commandv('script-message', 'ap-queue-menu') return end  -- [AnimePlayer: queue tab]\n\t\tif event.action == 'queue_tools' then"
+}

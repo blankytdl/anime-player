@@ -1,0 +1,7 @@
+{
+ "id": "timeline-1",
+ "file": "scripts/uosc/elements/Timeline.lua",
+ "marker": "[AP7:auto-Timeline-lua-1]",
+ "find": "\t\tlocal dt = math.min(0.1, math.max(0, now - (self.ap_last_time or now)))\n\t\tself.ap_last_time = now\n\t\tlocal shown = self.ap_shown or progress\n\t\tif math.abs(progress - shown) > 0.04 then shown = progress else shown = shown + (progress - shown) * math.min(1, dt * 10) end\n\t\tself.ap_shown = shown\n\t\tif math.abs(progress - shown) > 0.0002 and not state.pause then request_render() end\n\t\tprogress = shown\n\tend\n\tlocal is_line = options.timeline_style == 'line'",
+ "replace": "\t\tlocal dt = math.min(0.1, math.max(0, now - (self.ap_last_time or now))) -- [AP7:auto-Timeline-lua-1]\n\t\tself.ap_last_time = now\n\t\tlocal shown = self.ap_shown or progress\n\t\t-- [AP14: better animation] seeks glide too (faster), with a slight ease-out; the knob never jumps\n\t\tlocal rate = math.abs(progress - shown) > 0.04 and 16 or 10\n\t\tshown = shown + (progress - shown) * math.min(1, dt * rate)\n\t\tif math.abs(progress - shown) < 0.00005 then shown = progress end\n\t\tself.ap_shown = shown\n\t\tif math.abs(progress - shown) > 0.0002 then request_render() end\n\t\tprogress = shown\n\tend\n\tlocal is_line = options.timeline_style == 'line'"
+}

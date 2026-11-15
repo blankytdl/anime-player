@@ -1,0 +1,7 @@
+{
+ "id": "menu-actions-width",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: menu actions width]",
+ "find": "\t\tmenu.width = round(clamp(min_width, width, width_available))\n",
+ "replace": "\t\t-- [AP25: menu actions width] the Playlist / Queue panel (the menus with tabs) is as wide as the player window allows (92 %), so it scales with the\n\t\t-- player; other menus with row buttons get room for the title next to the buttons of the selected row\n\t\tlocal ap_min = min_width\n\t\tif menu.tabs and menu.is_root then ap_min = math.floor(width_available * 0.92)\n\t\telseif menu.item_actions and #menu.item_actions > 0 then ap_min = math.min(width_available, math.max(min_width, (#menu.item_actions + 6.5) * self.item_height)) end\n\t\tmenu.width = round(clamp(ap_min, width, width_available))\n"
+}

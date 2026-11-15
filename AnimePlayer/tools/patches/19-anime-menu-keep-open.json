@@ -1,0 +1,7 @@
+{
+ "id": "anime-menu-keep-open",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "[AnimePlayer: anime menu stays open]",
+ "find": "    return utils.format_json({\n        type = \"menu\",\n        title = \"Anime Build Options\",\n        items = items\n    })",
+ "replace": "    -- [AnimePlayer: anime menu stays open] ROOT CAUSE of the anime menu vanishing on every click: uosc closes a menu after an item\n    -- is activated unless the item / menu has keep_open (lib/menus.lua: `if not event.keep_open ... then menu:close()`), so the menu was\n    -- closed before update_uosc_menu() could refresh it. Also: this menu used type \"menu\", the SAME type as uosc's own main menu, so every\n    -- update-menu sent from here overwrote the main menu whenever that one was open. It gets its own type now.\n    return utils.format_json({\n        type = \"anime_menu\",\n        title = \"Anime Build Options\",\n        keep_open = true,\n        items = items\n    })"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "playlist-queue-actions",
+ "file": "scripts/uosc/main.lua",
+ "marker": "AnimePlayer: queue actions",
+ "find": "\tlist_prop = 'playlist',\n",
+ "replace": "\tlist_prop = 'playlist',\n\t-- [AnimePlayer: queue actions] buttons that appear on the hovered row next to move up / down / remove\n\tactions = {\n\t\t{name = 'queue_tools', icon = 'queue_music', label = t('Queue tools') .. ' (add / sort / clear)'},\n\t\t{name = 'play_next', icon = 'playlist_play', label = t('Play next')},\n\t\t{name = 'move_end', icon = 'vertical_align_bottom', label = t('Move to end')},\n\t},\n"
+}

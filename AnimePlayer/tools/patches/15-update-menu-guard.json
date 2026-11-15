@@ -1,0 +1,7 @@
+{
+ "id": "update-menu-guard",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: update guard]",
+ "find": "\t\tif menu then menu:update(data) end",
+ "replace": "\t\tif menu then pcall(menu.update, menu, data) end -- [AnimePlayer: update guard]"
+}

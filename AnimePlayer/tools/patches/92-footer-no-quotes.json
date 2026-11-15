@@ -1,0 +1,7 @@
+{
+ "id": "footer-no-quotes",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP25: footer no quotes]",
+ "find": "(menu.footer_prop and mp.get_property(menu.footer_prop))",
+ "replace": "(menu.footer_prop and mp.get_property_native(menu.footer_prop)) -- [AP25: footer no quotes] a user-data string read as text came back in quotes (\"Total ...\")"
+}

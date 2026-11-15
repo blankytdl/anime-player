@@ -1,0 +1,7 @@
+{
+ "id": "subs-visual-adjuster",
+ "file": "scripts/uosc/main.lua",
+ "marker": "AnimePlayer: visual subtitle adjuster",
+ "find": "            { title = 'Fix Timing', active = is_true('sub-fix-timing'), value = cmd('cycle sub-fix-timing', 'subtitles_root', 11) },\n",
+ "replace": "            { title = 'Fix Timing', active = is_true('sub-fix-timing'), value = cmd('cycle sub-fix-timing', 'subtitles_root', 11) },\n            -- [AnimePlayer: visual subtitle adjuster] appended at the END so the row numbers used by the toggles above do not move\n            create_adjust_menu('Position', 'sub-pos', 1, 100, nil, 'sub_pos_menu'),\n            create_adjust_menu('Delay (seconds)', 'sub-delay', 0.1, 0, nil, 'sub_delay_menu'),\n            create_adjust_menu('Scale', 'sub-scale', 0.1, 1, nil, 'sub_scale_menu'),\n            { title = 'Subtitle Sync (visual)...', icon = 'sync', hint = 'auto-align to the audio', value = 'script-message-to mpvnet show-subsync' },\n"
+}

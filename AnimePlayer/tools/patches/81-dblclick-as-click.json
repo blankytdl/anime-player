@@ -1,0 +1,7 @@
+{
+ "id": "dblclick-as-click",
+ "file": "scripts/uosc/lib/cursor.lua",
+ "marker": "[AP25: dbl = click]",
+ "find": "mp.set_key_bindings({\n\t{'mbtn_left_dbl', 'ignore'},\n}, 'mbtn_left_dbl', 'force')",
+ "replace": "-- [AP25: dbl = click] the 2nd click of a fast double click arrives as MBTN_LEFT_DBL: handle it like a normal click (it used to be ignored)\nmp.set_key_bindings({\n\t{\n\t\t'mbtn_left_dbl',\n\t\tcursor:create_handler('primary_up', create_shortcut('primary_up')),\n\t\tcursor:create_handler('primary_down', create_shortcut('primary_down'), function(...)\n\t\t\thandle_mouse_pos(nil, mp.get_property_native('mouse-pos'))\n\t\tend),\n\t},\n}, 'mbtn_left_dbl', 'force')"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "button-2",
+ "file": "scripts/uosc/elements/Button.lua",
+ "marker": "[AP7:auto-Button-lua-2]",
+ "find": "function Button:on_coordinates() self.font_size = round((self.by - self.ay) * 0.7) end\nfunction Button:handle_cursor_click()\n\tif not self.on_click or not self.is_clickable then return end\n\t-- We delay the callback to next tick, otherwise we are risking race\n\t-- conditions as we are in the middle of event dispatching.\n\t-- For example, handler might add a menu to the end of the element stack, and that",
+ "replace": "function Button:on_coordinates() self.font_size = round((self.by - self.ay) * 0.7) end -- [AP7:auto-Button-lua-2]\nfunction Button:handle_cursor_click()\n\tif not self.on_click or not self.is_clickable then return end\n\tself.click_time = mp.get_time()  -- [AP14: press indicator] starts the ripple + icon pop drawn in render()\n\t-- We delay the callback to next tick, otherwise we are risking race\n\t-- conditions as we are in the middle of event dispatching.\n\t-- For example, handler might add a menu to the end of the element stack, and that"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "bar-video-tools",
+ "file": "script-opts/uosc.conf",
+ "marker": "ap-zoom-crop",
+ "find": ",command:picture_in_picture_alt:script-message toggle-pip?PiP Mode,",
+ "replace": ",command:picture_in_picture_alt:script-message toggle-pip?PiP Mode,<video>command:aspect_ratio:script-message ap-aspect-cycle?Change aspect ratio,<video>command:rotate_right:script-message ap-rotate?Rotate video,<video>command:fit_screen:script-message ap-zoom-off?Zoom: Auto (Fit / Original),<video>command:zoom_out_map:script-message ap-zoom-fill?Zoom: Forced (Fill),<video>command:crop:script-message ap-zoom-crop?Zoom: Smart (Crop black bars),"
+}

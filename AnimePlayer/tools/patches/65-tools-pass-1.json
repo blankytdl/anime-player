@@ -1,0 +1,7 @@
+{
+ "id": "tools-pass-1",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP7:auto-menus-lua-1]",
+ "find": "\t\t\tend\n\t\tend\n\n\t\tlocal function cleanup_and_close()\n\t\t\tmp.unobserve_property(handle_list_prop_change)\n\t\t\tmp.unobserve_property(handle_active_prop_change)\n\t\t\tmenu:close()\n\t\tend\n",
+ "replace": "\t\t\tend -- [AP7:auto-menus-lua-1]\n\t\tend\n\n\t\t-- [AP11: watched refresh] an extra property (user-data/ap/watched) that re-renders the list when it changes\n\t\tlocal extra_props = type(opts.extra_prop) == 'table' and opts.extra_prop or (opts.extra_prop and {opts.extra_prop} or {})\n\t\tlocal ignore_initial_extra = #extra_props   -- every observed property reports its value once when it is registered\n\t\tlocal function handle_extra_prop_change()\n\t\t\tif ignore_initial_extra > 0 then ignore_initial_extra = ignore_initial_extra - 1 else update() end\n\t\tend\n\t\t-- [AP17: live narrow] the row buttons depend on the window width: rebuild when it crosses the limit\n\t\tlocal last_narrow = display.width > 0 and display.width < 620\n\t\tlocal function handle_width_change(_, w)\n\t\t\tif not w or w <= 0 then return end\n\t\t\tlocal narrow = w < 620\n\t\t\tif narrow ~= last_narrow then last_narrow = narrow; update() end\n\t\tend\n\n\t\tlocal function cleanup_and_close()\n\t\t\tmp.unobserve_property(handle_list_prop_change)\n\t\t\tmp.unobserve_property(handle_active_prop_change)\n\t\t\tmp.unobserve_property(handle_extra_prop_change)\n\t\t\tmp.unobserve_property(handle_width_change)\n\t\t\tmenu:close()\n\t\tend\n"
+}

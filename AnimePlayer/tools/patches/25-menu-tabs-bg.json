@@ -1,0 +1,7 @@
+{
+ "id": "25-menu-tabs-bg",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AnimePlayer: menu tabs bg]",
+ "find": "\t\t\tay = content_rect.ay - (draw_title and self.scroll_step or 0) - self.padding,\n",
+ "replace": "\t\t\tay = content_rect.ay - (draw_title and self.scroll_step or 0) - ((menu.tabs and menu.is_root and draw_title) and self.scroll_step or 0) - self.padding,  -- [AnimePlayer: menu tabs bg]\n"
+}

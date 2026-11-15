@@ -1,0 +1,7 @@
+{
+ "id": "upnext-1",
+ "file": "scripts/Up_Next.lua",
+ "marker": "[AP7:auto-Up_Next-lua-1]",
+ "find": "local function on_tick()\n    if not opts.enabled then return end\n\n    -- [SAFETY] Don't run logic if we are just starting (avoids property spam)\n    local time_pos = mp.get_property_number(\"time-pos\")\n    if not time_pos or time_pos < 5 then return end",
+ "replace": "local function on_tick() -- [AP7:auto-Up_Next-lua-1]\n    if not opts.enabled then return end\n\n    -- [AP14: no Up Next card for short videos] under 10 minutes the card is never shown\n    local total = mp.get_property_number(\"duration\")\n    if total and total < 600 then\n        if state.is_visible then paint(\"\"); state.is_visible = false; state.next_filename = nil end\n        if state.mouse_bound then mp.remove_key_binding(\"click_next\"); state.mouse_bound = false end\n        return\n    end\n\n    -- [SAFETY] Don't run logic if we are just starting (avoids property spam)\n    local time_pos = mp.get_property_number(\"time-pos\")\n    if not time_pos or time_pos < 5 then return end"
+}

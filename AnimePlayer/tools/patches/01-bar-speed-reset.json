@@ -1,0 +1,7 @@
+{
+ "id": "bar-speed-reset",
+ "file": "script-opts/uosc.conf",
+ "marker": "ap-speed-reset-btn",
+ "find": ",speed,prev,",
+ "replace": ",speed,command:restart_alt:script-message speed-reset?Reset speed,prev,"
+}

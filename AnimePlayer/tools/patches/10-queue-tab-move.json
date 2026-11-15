@@ -1,0 +1,7 @@
+{
+ "id": "queue-tab-move",
+ "file": "scripts/uosc/main.lua",
+ "marker": "if from < 1 or to < 1 then return end",
+ "find": "\ton_move = function(event)\n\t\tlocal from, to = event.from_index, event.to_index\n\t\tmp.commandv('playlist-move', tostring(from - 1), tostring(to - (to > from and 0 or 1)))\n\tend,\n\ton_remove = function(event) mp.commandv('playlist-remove', tostring(event.value - 1)) end,\n}))\n-- [v4.5] History UOSC Bind",
+ "replace": "\ton_move = function(event)\n\t\t-- [AnimePlayer: queue tab] menu row 1 is the Queue entry, playlist item n is row n + 1\n\t\tlocal from, to = event.from_index - 1, event.to_index - 1\n\t\tif from < 1 or to < 1 then return end\n\t\tmp.commandv('playlist-move', tostring(from - 1), tostring(to - (to > from and 0 or 1)))\n\tend,\n\ton_remove = function(event) if type(event.value) == 'number' then mp.commandv('playlist-remove', tostring(event.value - 1)) end end,\n}))\n-- [v4.5] History UOSC Bind"
+}

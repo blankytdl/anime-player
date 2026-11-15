@@ -1,0 +1,7 @@
+{
+ "id": "queue-tab-copy",
+ "file": "scripts/uosc/main.lua",
+ "marker": "type(event.selected_item.value) == 'number'",
+ "find": "\t\tif event.id == 'ctrl+c' and event.selected_item then\n\t\t\tlocal payload = mp.get_property_native('playlist/' .. (event.selected_item.value - 1) .. '/filename')",
+ "replace": "\t\tif event.id == 'ctrl+c' and event.selected_item and type(event.selected_item.value) == 'number' then  -- [AnimePlayer: queue tab]\n\t\t\tlocal payload = mp.get_property_native('playlist/' .. (event.selected_item.value - 1) .. '/filename')"
+}

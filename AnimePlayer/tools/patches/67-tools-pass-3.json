@@ -1,0 +1,7 @@
+{
+ "id": "tools-pass-3",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP7: menu tools pass]",
+ "find": "\t\t\ttitle = opts.title,\n\t\t\tfootnote = opts.footnote,\n\t\t\ttabs = opts.tabs,  -- [AnimePlayer: menu tabs pass]\n\t\t\titems = initial_items,\n\t\t\titem_actions = actions,\n\t\t\titem_actions_place = opts.actions_place,",
+ "replace": "\t\t\ttitle = opts.title,\n\t\t\tfootnote = opts.footnote,\n\t\t\ttabs = opts.tabs,  -- [AnimePlayer: menu tabs pass]\n\t\t\ttools = opts.tools,  -- [AP7: menu tools pass]\n\t\t\tfooter_prop = opts.footer_prop,  -- [AP14: list totals pass]\n\t\t\titems = initial_items,\n\t\t\titem_actions = actions,\n\t\t\titem_actions_place = opts.actions_place,"
+}

@@ -1,0 +1,7 @@
+Seek-bar preview (thumbfast) starts a second, tiny mpv process, so it needs a real mpv.exe - mpv.net only embeds libmpv.
+
+1. Download the standalone mpv build for Windows x86_64 (shinchiro builds; NOT the "-v3" one, an i5-3470 has no AVX2).
+2. Extract it so that mpv.exe is somewhere inside this folder (nested folders are fine).
+3. Run build.bat again. It copies mpv.exe to dist\mpv-thumb\mpv.exe and points thumbfast at it.
+
+Without it the preview shows "thumbfast: ERROR! install standalone mpv" or stays blank.

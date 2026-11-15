@@ -1,0 +1,7 @@
+{
+ "id": "ctrl-menu-label",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "GPU Upscaler",
+ "find": "\"RTX VSR: \"",
+ "replace": "\"GPU Upscaler (RX 580): \""
+}

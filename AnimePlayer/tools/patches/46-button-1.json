@@ -1,0 +1,7 @@
+{
+ "id": "button-1",
+ "file": "scripts/uosc/elements/Button.lua",
+ "marker": "[AP7: live theme colours]",
+ "find": "\tself.active = props.active\n\tself.tooltip = props.tooltip\n\tself.badge = props.badge\n\tself.foreground = props.foreground or fg\n\tself.background = props.background or bg\n\tself.is_clickable = true\n\t---@type fun()|nil\n\tself.on_click = props.on_click",
+ "replace": "\tself.active = props.active\n\tself.tooltip = props.tooltip\n\tself.badge = props.badge\n\tself.foreground = props.foreground   -- [AP7: live theme colours] no copy of fg / bg here: they change with the theme / accent\n\tself.background = props.background\n\tself.is_clickable = true\n\t---@type fun()|nil\n\tself.on_click = props.on_click"
+}

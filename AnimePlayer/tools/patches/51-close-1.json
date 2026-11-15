@@ -1,0 +1,7 @@
+{
+ "id": "close-1",
+ "file": "scripts/uosc/elements/TopBar.lua",
+ "marker": "[AP7: close button colour]",
+ "find": "\t\tend\n\tend\n\n\tlocal close = {icon = 'close', hover_bg = '2311e8', hover_fg = 'ffffff', command = function() mp.command('quit') end}\n\tlocal max = {icon = 'crop_square', command = maximized_command}\n\tlocal min = {icon = 'minimize', command = function() mp.command('cycle window-minimized') end}\n\tself.buttons = options.top_bar_controls == 'left' and {close, max, min} or {min, max, close}\n\n\tself:register_observers()\n\tself:decide_enabled()",
+ "replace": "\t\tend\n\tend\n\n\t-- [AP7: close button colour] always red with a white x (ASS colours are BGR), whatever the theme / accent: it must never look like - and the square\n\tlocal close = {icon = 'close', is_close = true, hover_bg = '2b2bd6', hover_fg = 'ffffff', command = function() mp.command('quit') end}\n\tlocal max = {icon = 'crop_square', command = maximized_command}\n\tlocal min = {icon = 'minimize', command = function() mp.command('cycle window-minimized') end}\n\tself.buttons = options.top_bar_controls == 'left' and {close, max, min} or {min, max, close}\n\tself.ap_max = max   -- [AP18: snap layouts] its rectangle is published for the player window (Windows' snap layouts flyout)\n\n\tself:register_observers()\n\tself:decide_enabled()"
+}

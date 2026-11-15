@@ -1,0 +1,7 @@
+{
+ "id": "center-block-3",
+ "file": "scripts/uosc/elements/Controls.lua",
+ "marker": "[AP25: centred block 3]",
+ "find": "\t\t\t\tx = x + w + spacing\n\t\t\tend\n\t\tend\n\tend\n\tplace(left, center_ax - side_gap, left_avail, true)\n\tplace(center, center_ax, center_w, false)\n\tplace(right, center_ax + center_w + side_gap, right_avail, false)\n",
+ "replace": "\t\t\t\tx = x + w + spacing\n\t\t\tend\n\t\tend\n\t\treturn total_w\n\tend\n\t-- [AP25: centred block 3] the transport stays in the middle, the left / right groups hug it; then the WHOLE block is shifted so the free room\n\t-- left of it and right of it is equal (the bar sits in the centre of the window). The transport is never hidden by this.\n\tlocal lw = place(left, center_ax - side_gap, left_avail, true, 0)\n\tplace(center, center_ax, center_w, false, 0)\n\tlocal rw = place(right, center_ax + center_w + side_gap, right_avail, false, 0)\n\tlocal block_l = center_ax - side_gap - lw\n\tlocal block_r = center_ax + center_w + side_gap + rw\n\tlocal shift = round(((self.bx - block_r) - (block_l - self.ax)) / 2)\n\tif shift ~= 0 and block_l + shift >= self.ax and block_r + shift <= self.bx then\n\t\tplace(left, center_ax - side_gap, left_avail, true, shift)\n\t\tplace(center, center_ax, center_w, false, shift)\n\t\tplace(right, center_ax + center_w + side_gap, right_avail, false, shift)\n\tend\n"
+}

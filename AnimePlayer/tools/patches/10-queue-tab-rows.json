@@ -1,0 +1,7 @@
+{
+ "id": "queue-tab-rows",
+ "file": "scripts/uosc/main.lua",
+ "marker": "value = 'ap_queue',",
+ "find": "\t\tlocal force_filename = mp.get_property_native('osd-playlist-entry') == 'filename'\n",
+ "replace": "\t\tlocal force_filename = mp.get_property_native('osd-playlist-entry') == 'filename'\n\t\t-- [AnimePlayer: queue tab] row 1 is the Queue (add / sort / shuffle / clear / restore); playlist item n is row n + 1\n\t\titems[1] = {\n\t\t\ttitle = t('Queue') .. '  -  add, sort, shuffle, clear, restore',\n\t\t\thint = tostring(#playlist),\n\t\t\ticon = 'queue_music',\n\t\t\tbold = true,\n\t\t\tactions = {},\n\t\t\tvalue = 'ap_queue',\n\t\t}\n"
+}

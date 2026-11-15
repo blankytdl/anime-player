@@ -1,0 +1,7 @@
+{
+ "id": "menu-2",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP7:auto-Menu-lua-2]",
+ "find": "\n---@param index integer\nfunction Menu:move_selected_item_to(index)\n\tif self.current.search then return end -- Moving filtered items is an undefined behavior\n\tlocal callback = self.current.on_move\n\tlocal from, items_count = self.current.selected_index, self.current.items and #self.current.items or 0\n\tif callback and from and from ~= index and index >= 1 and index <= items_count then",
+ "replace": "\n---@param index integer -- [AP7:auto-Menu-lua-2]\nfunction Menu:move_selected_item_to(index)\n\t-- [AP15: reorder with the palette search] only a typed filter blocks moving (an empty search bar is fine)\n\tif self.current.search and self.current.search.query ~= '' then return end -- Moving filtered items is an undefined behavior\n\tlocal callback = self.current.on_move\n\tlocal from, items_count = self.current.selected_index, self.current.items and #self.current.items or 0\n\tif callback and from and from ~= index and index >= 1 and index <= items_count then"
+}

@@ -1,0 +1,7 @@
+{
+ "id": "28-playlist-queue-tab",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AnimePlayer: queue as a tab]",
+ "find": "\t\t-- [AnimePlayer: queue tab] row 1 is the Queue (add / sort / shuffle / clear / restore); playlist item n is row n + 1\n\t\titems[1] = {\n\t\t\ttitle = t('Queue') .. '  -  add, sort, shuffle, clear, restore',\n\t\t\thint = tostring(#playlist),\n\t\t\ticon = 'queue_music',\n\t\t\tbold = true,\n\t\t\tactions = {},\n\t\t\tvalue = 'ap_queue',\n\t\t}\n\t\tfor index, item in ipairs(playlist) do\n\t\t\tlocal title = type(item.title) == 'string' and #item.title > 0 and item.title or false\n\t\t\titems[index + 1] = {  -- [AnimePlayer: queue tab] row 1 is the Queue entry\n",
+ "replace": "\t\t-- [AnimePlayer: queue as a tab] the Queue lives in its own tab next to Playlist, so playlist item n is row n again\n\t\tfor index, item in ipairs(playlist) do\n\t\t\tlocal title = type(item.title) == 'string' and #item.title > 0 and item.title or false\n\t\t\titems[index] = {\n"
+}

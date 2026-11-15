@@ -1,0 +1,7 @@
+{
+ "id": "playlist-dblclick",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP25: double-click open]",
+ "find": "\t\t\t\t\topts.on_activate(event --[[@as MenuEventActivate]])\n\t\t\t\t\tif not event.modifiers and not event.action then cleanup_and_close() end",
+ "replace": "\t\t\t\t\t-- [AP25: double-click open] playlist: with the mouse the first click only selects the row, a second click on it within 0.6 s opens it (Enter opens at once)\n\t\t\t\t\tif opts.type == 'playlist' and event.is_pointer and not event.modifiers and not event.action then\n\t\t\t\t\t\t_G.ap_click = _G.ap_click or {idx = nil, t = -100}\n\t\t\t\t\t\tlocal now = mp.get_time()\n\t\t\t\t\t\tif _G.ap_click.idx ~= event.index or now - _G.ap_click.t > 0.6 then\n\t\t\t\t\t\t\t_G.ap_click.idx, _G.ap_click.t = event.index, now\n\t\t\t\t\t\t\treturn\n\t\t\t\t\t\tend\n\t\t\t\t\t\t_G.ap_click.idx = nil\n\t\t\t\t\tend\n\t\t\t\t\topts.on_activate(event --[[@as MenuEventActivate]])\n\t\t\t\t\tif not event.modifiers and not event.action then cleanup_and_close() end"
+}

@@ -1,0 +1,13 @@
+Extract the contents of Chinna95P/mpv-anime-build (https://github.com/Chinna95P/mpv-anime-build) into THIS folder,
+so that these exist:
+
+    mpv-anime-build\mpv.conf
+    mpv-anime-build\input.conf
+    mpv-anime-build\scripts\
+    mpv-anime-build\shaders\
+    mpv-anime-build\script-opts\
+    mpv-anime-build\fonts\
+
+(Code -> Download ZIP, then copy what is inside the zip's top folder here.)
+build.bat merges it with the AnimePlayer extras and installs the result to %APPDATA%\mpv (as the build's readme says).
+Install the included "Source Sans Pro" font from fonts\ so the stats overlay renders correctly.

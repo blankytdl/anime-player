@@ -1,0 +1,7 @@
+{
+ "id": "unique-menu-ids",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AnimePlayer: unique menu ids]",
+ "find": "\t\tmenu.icon = 'chevron_right'\n",
+ "replace": "\t\t-- [AnimePlayer: unique menu ids] ROOT CAUSE of \"the menu / controls menu makes the UI disappear\": the build's menus reuse ids ('sub_delay_menu', 'sub_pos_menu' twice, two\n\t\t-- 'Utils'). Two menus with one id -> by_id points at the later one, its scroll_height is still nil when the first one is laid out -> clamp(nil) error while the\n\t\t-- menu is being created -> the half-built menu element is left behind and the UI is gone. Every repeated id now gets a suffix.\n\t\tif new_by_id[menu.id] then\n\t\t\tlocal base, n = menu.id, 2\n\t\t\twhile new_by_id[base .. ' #' .. n] do n = n + 1 end\n\t\t\tmenu.id = base .. ' #' .. n\n\t\tend\n\t\tmenu.icon = 'chevron_right'\n"
+}

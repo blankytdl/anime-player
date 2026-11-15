@@ -1,0 +1,7 @@
+{
+ "id": "menu-1",
+ "file": "scripts/uosc/elements/Menu.lua",
+ "marker": "[AP7:auto-Menu-lua-1]",
+ "find": "end\n\nfunction Menu:destroy()\n\tElement.destroy(self)\n\tself.is_closing = false\n\tif not self.is_being_replaced then Elements:maybe('curtain', 'unregister', self.id) end",
+ "replace": "end -- [AP7:auto-Menu-lua-1]\n\nfunction Menu:destroy()\n\tself:restore_window_dragging()  -- [AP17] a menu that closes while a button is held must not leave window dragging (and snapping) switched off\n\tElement.destroy(self)\n\tself.is_closing = false\n\tif not self.is_being_replaced then Elements:maybe('curtain', 'unregister', self.id) end"
+}

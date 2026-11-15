@@ -1,0 +1,7 @@
+{
+ "id": "ui-1",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AP7:auto-main-lua-1]",
+ "find": "--[[ OPTIONS ]]\n\ndefaults = {\n\ttimeline_style = 'line',\n\ttimeline_line_width = 2,\n\ttimeline_size = 40,\n\tprogress = 'windowed',",
+ "replace": "--[[ OPTIONS ]] -- [AP7:auto-main-lua-1]\n\ndefaults = {\n\ttimeline_style = 'bar',\n\ttimeline_line_width = 2,\n\ttimeline_size = 40,\n\tprogress = 'windowed',"
+}
