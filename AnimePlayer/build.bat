@@ -78,12 +78,22 @@ if defined FF copy /y "!FF!" "dist\" >nul
 if defined FP copy /y "!FP!" "dist\" >nul
 
 set "MPVEXE_SRC="
-for /r "%MPV_EXE_DIR%" %%f in (mpv.exe) do if exist "%%f" if not defined MPVEXE_SRC set "MPVEXE_SRC=%%f"
+set "MPVEXE_SRC_DIR="
+for /r "%MPV_EXE_DIR%" %%f in (mpv.exe) do if exist "%%f" if not defined MPVEXE_SRC (
+  set "MPVEXE_SRC=%%f"
+  set "MPVEXE_SRC_DIR=%%~dpf"
+)
 set "MPVEXE_DEST="
 if defined MPVEXE_SRC (
   mkdir "dist\mpv-thumb" 2>nul
-  copy /y "!MPVEXE_SRC!" "dist\mpv-thumb\mpv.exe" >nul
-  set "MPVEXE_DEST=!ROOT!dist\mpv-thumb\mpv.exe"
+  rem thumbfast starts mpv.exe as a separate process. Copy its whole runtime folder,
+  rem not only the EXE, so its adjacent DLLs remain available after moving the player.
+  robocopy "!MPVEXE_SRC_DIR!" "dist\mpv-thumb" /E /XF PUT_MPV_EXE_HERE.txt /NFL /NDL /NJH /NJS /NP >nul
+  if errorlevel 8 (
+    echo [WARN] Could not copy the complete standalone mpv runtime into dist\mpv-thumb.
+    set "MISSING=1"
+  )
+  if exist "dist\mpv-thumb\mpv.exe" set "MPVEXE_DEST=!ROOT!dist\mpv-thumb\mpv.exe"
 )
 
 rem ---- 2) config (a failure here is reported but never aborts the build) ----
