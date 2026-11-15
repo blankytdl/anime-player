@@ -5,6 +5,7 @@ on:
     paths:
       - 'AnimePlayer-round25.zip'
       - 'AnimePlayer/**'
+      - 'build-source/**'
   workflow_dispatch:
 
 permissions:
@@ -26,19 +27,40 @@ jobs:
         shell: pwsh
         run: |
           $root = $env:GITHUB_WORKSPACE
-          if (Test-Path (Join-Path $root 'AnimePlayer/build.bat')) {
+          $chunkDir = Join-Path $root 'build-source'
+          $chunks = @()
+          if (Test-Path -LiteralPath $chunkDir) {
+            $chunks = @(Get-ChildItem -LiteralPath $chunkDir -Filter 'round25-*.b64' -File | Sort-Object Name)
+          }
+          if ($chunks.Count -gt 0) {
+            $encoded = ($chunks | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join ''
+            if ([string]::IsNullOrWhiteSpace($encoded)) { throw 'Round-25 source transfer chunks are empty.' }
+            $archiveBytes = [Convert]::FromBase64String($encoded)
+            $archive = Join-Path $root 'AnimePlayer-round25.tar.xz'
+            [IO.File]::WriteAllBytes($archive, $archiveBytes)
+            $extract = Join-Path $root '.round25-source'
+            if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $extract | Out-Null
+            & tar.exe -xf $archive -C $extract
+            if ($LASTEXITCODE -ne 0) { throw "Could not extract round-25 source archive (tar exit $LASTEXITCODE)." }
+            $project = Join-Path $extract 'AnimePlayer'
+          }
+          elseif (Test-Path (Join-Path $root 'AnimePlayer/build.bat')) {
             $project = Join-Path $root 'AnimePlayer'
-          } elseif (Test-Path (Join-Path $root 'build.bat')) {
+          }
+          elseif (Test-Path (Join-Path $root 'build.bat')) {
             $project = $root
-          } elseif (Test-Path (Join-Path $root 'AnimePlayer-round25.zip')) {
+          }
+          elseif (Test-Path (Join-Path $root 'AnimePlayer-round25.zip')) {
             $extract = Join-Path $root '.round25-source'
             if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
             Expand-Archive -LiteralPath (Join-Path $root 'AnimePlayer-round25.zip') -DestinationPath $extract -Force
             $buildFiles = @(Get-ChildItem -LiteralPath $extract -Filter 'build.bat' -File -Recurse)
             if ($buildFiles.Count -ne 1) { throw "Expected exactly one build.bat in round-25 archive; found $($buildFiles.Count)." }
             $project = $buildFiles[0].Directory.FullName
-          } else {
-            throw 'Round-25 source is missing. Commit AnimePlayer-round25.zip or the expanded AnimePlayer/ source tree.'
+          }
+          else {
+            throw 'Round-25 source is missing. Commit the round-25 archive chunks or expanded AnimePlayer/ source tree.'
           }
           if (-not (Test-Path (Join-Path $project 'tools/ci/fetch-dependencies.ps1'))) {
             throw "CPU-safe dependency fetch script is missing from $project."
