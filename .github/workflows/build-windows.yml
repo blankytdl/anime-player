@@ -31,30 +31,40 @@ jobs:
           $root = $env:GITHUB_WORKSPACE
           $project = $null
           $extract = Join-Path $root '.round25-source'
+          $chunkDir = Join-Path $root 'build-source'
+          $chunks = @()
+          if (Test-Path -LiteralPath $chunkDir) { $chunks = @(Get-ChildItem -LiteralPath $chunkDir -Filter 'round25-*.b64' -File | Sort-Object Name) }
           $archiveCandidates = @(Get-ChildItem -LiteralPath $root -Filter 'AnimePlayer-round25*.zip' -File)
-          if ($archiveCandidates.Count -gt 1) { throw 'More than one Round-25 ZIP was found; keep only the intended current source archive.' }
-          if ($archiveCandidates.Count -eq 1) {
+          if ($chunks.Count -gt 0 -and $archiveCandidates.Count -gt 0) { throw 'Provide either the chunked Round-25 archive or a ZIP, not both.' }
+          if ($chunks.Count -gt 0) {
+            $encoded = ($chunks | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw).Trim() }) -join ''
+            if ([string]::IsNullOrWhiteSpace($encoded)) { throw 'Round-25 archive chunks are empty.' }
+            $archiveBytes = [Convert]::FromBase64String($encoded)
+            $archive = Join-Path $root 'AnimePlayer-round25.tar.xz'
+            [IO.File]::WriteAllBytes($archive, $archiveBytes)
+            if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $extract | Out-Null
+            & tar.exe -xf $archive -C $extract
+            if ($LASTEXITCODE -ne 0) { throw "Could not extract Round-25 source archive (tar exit $LASTEXITCODE)." }
+            $project = Join-Path $extract 'AnimePlayer'
+          }
+          elseif ($archiveCandidates.Count -eq 1) {
             if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
             New-Item -ItemType Directory -Force -Path $extract | Out-Null
             Expand-Archive -LiteralPath $archiveCandidates[0].FullName -DestinationPath $extract -Force
             $buildFiles = @(Get-ChildItem -LiteralPath $extract -Filter 'build.bat' -File -Recurse)
             if ($buildFiles.Count -ne 1) { throw "Expected exactly one build.bat in the Round-25 ZIP; found $($buildFiles.Count)." }
             $project = $buildFiles[0].Directory.FullName
-            $targetProject = Join-Path $root 'AnimePlayer'
+          }
+          elseif ($archiveCandidates.Count -gt 1) { throw 'More than one Round-25 ZIP was found; keep only the intended archive.' }
+          elseif (Test-Path -LiteralPath (Join-Path $root 'AnimePlayer/build.bat')) { $project = Join-Path $root 'AnimePlayer' }
+          elseif (Test-Path -LiteralPath (Join-Path $root 'build.bat')) { $project = $root }
+          else { throw 'Round-25 source is missing. Add the current AnimePlayer-round25 ZIP or build-source/round25-*.b64 chunks.' }
+          $targetProject = Join-Path $root 'AnimePlayer'
+          if ($project -ne $targetProject -and $project -ne $root) {
             if (Test-Path -LiteralPath $targetProject) { Remove-Item -LiteralPath $targetProject -Recurse -Force }
-            if ($project -ne $targetProject) {
-              Move-Item -LiteralPath $project -Destination $targetProject -Force
-              $project = $targetProject
-            }
-          }
-          elseif (Test-Path -LiteralPath (Join-Path $root 'AnimePlayer/build.bat')) {
-            $project = Join-Path $root 'AnimePlayer'
-          }
-          elseif (Test-Path -LiteralPath (Join-Path $root 'build.bat')) {
-            $project = $root
-          }
-          else {
-            throw 'Round-25 source is missing. Add the current AnimePlayer-round25 ZIP or the expanded AnimePlayer/ source tree.'
+            Move-Item -LiteralPath $project -Destination $targetProject -Force
+            $project = $targetProject
           }
           $buildNumber = (Get-Content -LiteralPath (Join-Path $project 'BUILD.txt') -Raw -ErrorAction Stop).Trim()
           if ($buildNumber -ne '25') { throw "Expected Build 25, found BUILD.txt value '$buildNumber'." }
@@ -63,6 +73,9 @@ jobs:
           $staleZip = Join-Path $root 'AnimePlayer (1).zip'
           if (Test-Path -LiteralPath $staleZip) { Remove-Item -LiteralPath $staleZip -Force }
           foreach ($candidate in $archiveCandidates) { Remove-Item -LiteralPath $candidate.FullName -Force }
+          if ($chunks.Count -gt 0) { Remove-Item -LiteralPath $chunkDir -Recurse -Force }
+          $tempArchive = Join-Path $root 'AnimePlayer-round25.tar.xz'
+          if (Test-Path -LiteralPath $tempArchive) { Remove-Item -LiteralPath $tempArchive -Force }
           if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
           git add -A
           $pending = git status --porcelain
