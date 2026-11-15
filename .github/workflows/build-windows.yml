@@ -124,11 +124,50 @@ jobs:
 
       - name: Build portable Windows app
         shell: pwsh
+        env:
+          CI: '1'
+          CONFIG_MODE: PORTABLE
         run: |
           Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
           cmd.exe /d /c build.bat
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path 'dist')) { throw 'Build did not create the dist directory.' }
+
+      - name: Verify runtime files and merged configuration
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
+          $required = @(
+            'dist/mpvnet.exe',
+            'dist/AnimeLibrary.exe',
+            'dist/libmpv-2.dll',
+            'dist/ffmpeg.exe',
+            'dist/ffprobe.exe',
+            'dist/mpv-thumb/mpv.exe',
+            'dist/portable_config/mpv.conf',
+            'dist/portable_config/input.conf',
+            'dist/portable_config/scripts/uosc/main.lua'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Required build output is missing: $path"
+            }
+            Write-Host "[present] $path"
+          }
+
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'tools/verify-config.ps1' -Cfg (Join-Path (Get-Location).Path 'dist/portable_config')
+          if ($LASTEXITCODE -ne 0) { throw 'AnimePlayer portable configuration verification failed.' }
+
+          $mergeLog = Get-Content -LiteralPath 'dist/config-merge.log' -Raw
+          if ($mergeLog -match '(?im)^.*SKIPPED patch') {
+            throw 'One or more AnimePlayer patches did not match the pinned MPV Anime Build; refusing to publish an incomplete configuration.'
+          }
+          if ($mergeLog -match '(?im)^.*ERROR in section|^.*ERROR:') {
+            throw 'The AnimePlayer configuration merge reported an error.'
+          }
+          $summary = [regex]::Match($mergeLog, 'uosc edits:\s+\d+\s+applied,\s+\d+\s+already there,\s+(\d+)\s+skipped')
+          if (-not $summary.Success) { throw 'The configuration merge summary was not found.' }
+          if ([int]$summary.Groups[1].Value -ne 0) { throw "The configuration merge skipped $($summary.Groups[1].Value) patch(es)." }
 
       - name: Package portable build
         shell: pwsh
