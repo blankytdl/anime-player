@@ -1,0 +1,85 @@
+name: Build AnimePlayer round 25 (CPU-safe x64)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AnimePlayer-round25.zip'
+      - 'AnimePlayer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: animeplayer-round25-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare round-25 source
+        shell: pwsh
+        run: |
+          $root = $env:GITHUB_WORKSPACE
+          if (Test-Path (Join-Path $root 'AnimePlayer/build.bat')) {
+            $project = Join-Path $root 'AnimePlayer'
+          } elseif (Test-Path (Join-Path $root 'build.bat')) {
+            $project = $root
+          } elseif (Test-Path (Join-Path $root 'AnimePlayer-round25.zip')) {
+            $extract = Join-Path $root '.round25-source'
+            if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+            Expand-Archive -LiteralPath (Join-Path $root 'AnimePlayer-round25.zip') -DestinationPath $extract -Force
+            $buildFiles = @(Get-ChildItem -LiteralPath $extract -Filter 'build.bat' -File -Recurse)
+            if ($buildFiles.Count -ne 1) { throw "Expected exactly one build.bat in round-25 archive; found $($buildFiles.Count)." }
+            $project = $buildFiles[0].Directory.FullName
+          } else {
+            throw 'Round-25 source is missing. Commit AnimePlayer-round25.zip or the expanded AnimePlayer/ source tree.'
+          }
+          if (-not (Test-Path (Join-Path $project 'tools/ci/fetch-dependencies.ps1'))) {
+            throw "CPU-safe dependency fetch script is missing from $project."
+          }
+          "ANIMEPLAYER_ROOT=$project" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Fetch all four CPU-compatible dependencies
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
+          & ./tools/ci/fetch-dependencies.ps1
+          if (-not $?) { throw 'Dependency download or verification failed.' }
+
+      - name: Build portable Windows app
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
+          cmd.exe /d /c build.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path 'dist')) { throw 'Build did not create the dist directory.' }
+
+      - name: Package portable build
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
+          $manifest = '.ci-downloads/dependency-manifest.txt'
+          if (Test-Path $manifest) { Copy-Item $manifest 'dist/dependency-manifest.txt' -Force }
+          $out = Join-Path $env:GITHUB_WORKSPACE 'AnimePlayer-build25-windows-x64.zip'
+          if (Test-Path $out) { Remove-Item $out -Force }
+          Compress-Archive -Path 'dist/*' -DestinationPath $out -CompressionLevel Optimal
+          if ((Get-Item $out).Length -lt 1024) { throw 'Build archive is unexpectedly small.' }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimePlayer-build25-windows-x64
+          path: AnimePlayer-build25-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
