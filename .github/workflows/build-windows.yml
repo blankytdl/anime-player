@@ -148,6 +148,7 @@ jobs:
             'dist/mpv-thumb/libmpv-2.dll',
             'dist/portable_config/mpv.conf',
             'dist/portable_config/input.conf',
+            'dist/portable_config/scripts/00-thumbfast-path.lua',
             'dist/portable_config/scripts/uosc/main.lua'
           )
           foreach ($path in $required) {
@@ -160,6 +161,12 @@ jobs:
           # Confirm the standalone thumbnail process can actually load, not merely that mpv.exe exists.
           & '.\dist\mpv-thumb\mpv.exe' --no-config --version | Select-Object -First 1
           if ($LASTEXITCODE -ne 0) { throw 'The standalone thumbfast mpv runtime could not start; check its bundled DLLs.' }
+
+          # The portable config must not retain an absolute path from the GitHub runner.
+          $thumbfastConf = 'dist/portable_config/script-opts/thumbfast.conf'
+          if (Select-String -LiteralPath $thumbfastConf -Pattern '^\s*mpv_path\s*=' -Quiet) {
+            throw 'thumbfast.conf contains a hardcoded mpv_path; the runtime resolver must supply a relocatable path.'
+          }
 
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'tools/verify-config.ps1' -Cfg (Join-Path (Get-Location).Path 'dist/portable_config')
           if ($LASTEXITCODE -ne 0) { throw 'AnimePlayer portable configuration verification failed.' }
