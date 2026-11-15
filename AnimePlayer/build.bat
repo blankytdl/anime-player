@@ -91,7 +91,7 @@ if defined MPVEXE_SRC (
   robocopy "!MPVEXE_SRC_DIR!" "dist\mpv-thumb" /E /XF PUT_MPV_EXE_HERE.txt /NFL /NDL /NJH /NJS /NP >nul
   if errorlevel 8 (
     echo [WARN] Could not copy the complete standalone mpv runtime into dist\mpv-thumb.
-    set "MISSING=1"
+    set "MPVEXE_SRC="
   )
   if exist "dist\mpv-thumb\mpv.exe" set "MPVEXE_DEST=!ROOT!dist\mpv-thumb\mpv.exe"
 )
