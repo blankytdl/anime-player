@@ -149,8 +149,21 @@ jobs:
             'dist/portable_config/mpv.conf',
             'dist/portable_config/input.conf',
             'dist/portable_config/scripts/00-thumbfast-path.lua',
+            'dist/portable_config/scripts/ap-window-state.lua',
             'dist/portable_config/scripts/uosc/main.lua'
           )
+          $thumbResolver = Get-Content -LiteralPath 'dist/portable_config/scripts/00-thumbfast-path.lua' -Raw
+          if (-not $thumbResolver.Contains("utils.readdir(directory, 'dirs')")) {
+            throw 'thumbfast resolver is not configured to search player subfolders.'
+          }
+          $pinStateScript = Get-Content -LiteralPath 'dist/portable_config/scripts/ap-window-state.lua' -Raw
+          if (-not $pinStateScript.Contains('mp.observe_property')) {
+            throw 'Window pin-state script does not observe ontop changes.'
+          }
+          if (-not $pinStateScript.Contains("mp.register_event('shutdown'")) {
+            throw 'Window pin-state script does not save its state on shutdown.'
+          }
+
           foreach ($path in $required) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
               throw "Required build output is missing: $path"
