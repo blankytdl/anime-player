@@ -78,22 +78,15 @@ if defined FF copy /y "!FF!" "dist\" >nul
 if defined FP copy /y "!FP!" "dist\" >nul
 
 set "MPVEXE_SRC="
-set "MPVEXE_SRC_DIR="
-for /r "%MPV_EXE_DIR%" %%f in (mpv.exe) do if exist "%%f" if not defined MPVEXE_SRC (
-  set "MPVEXE_SRC=%%f"
-  set "MPVEXE_SRC_DIR=%%~dpf"
-)
 set "MPVEXE_DEST="
-if defined MPVEXE_SRC (
-  mkdir "dist\mpv-thumb" 2>nul
-  rem thumbfast starts mpv.exe as a separate process. Copy its whole runtime folder,
-  rem not only the EXE, so its adjacent DLLs remain available after moving the player.
-  robocopy "!MPVEXE_SRC_DIR!" "dist\mpv-thumb" /E /XF PUT_MPV_EXE_HERE.txt /NFL /NDL /NJH /NJS /NP >nul
-  if errorlevel 8 (
-    echo [WARN] Could not copy the complete standalone mpv runtime into dist\mpv-thumb.
-    set "MPVEXE_SRC="
-  )
-  if exist "dist\mpv-thumb\mpv.exe" set "MPVEXE_DEST=!ROOT!dist\mpv-thumb\mpv.exe"
+rem Find the standalone executable and copy every sibling runtime file with it.
+rem PowerShell handles both the normal root layout and user-supplied nested archives.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$exe = Get-ChildItem -LiteralPath '%MPV_EXE_DIR%' -Filter 'mpv.exe' -File -Recurse | Select-Object -First 1; if (-not $exe) { exit 2 }; New-Item -ItemType Directory -Force -Path 'dist\mpv-thumb' | Out-Null; Get-ChildItem -LiteralPath $exe.Directory.FullName -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination 'dist\mpv-thumb' -Recurse -Force }; if (-not (Test-Path -LiteralPath 'dist\mpv-thumb\mpv.exe' -PathType Leaf)) { exit 3 }"
+if not errorlevel 1 (
+  set "MPVEXE_SRC=1"
+  set "MPVEXE_DEST=!ROOT!dist\mpv-thumb\mpv.exe"
+) else (
+  echo [WARN] Could not find/copy a complete standalone mpv runtime from %MPV_EXE_DIR%.
 )
 
 rem ---- 2) config (a failure here is reported but never aborts the build) ----
