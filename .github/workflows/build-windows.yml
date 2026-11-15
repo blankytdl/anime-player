@@ -158,9 +158,12 @@ jobs:
             Write-Host "[present] $path"
           }
 
-          # Confirm the standalone thumbnail process can actually load, not merely that mpv.exe exists.
-          & '.\dist\mpv-thumb\mpv.exe' --no-config --version | Select-Object -First 1
-          if ($LASTEXITCODE -ne 0) { throw 'The standalone thumbfast mpv runtime could not start; check its bundled DLLs.' }
+          # Capture all output before displaying one line; piping directly to Select-Object
+          # can close mpv's stdout early and make an otherwise successful launch exit nonzero.
+          $mpvVersionOutput = & '.\dist\mpv-thumb\mpv.exe' --no-config --version 2>&1
+          $mpvExitCode = $LASTEXITCODE
+          $mpvVersionOutput | Select-Object -First 1
+          if ($mpvExitCode -ne 0) { throw 'The standalone thumbfast mpv runtime could not start; check its bundled DLLs.' }
 
           # The portable config must not retain an absolute path from the GitHub runner.
           $thumbfastConf = 'dist/portable_config/script-opts/thumbfast.conf'
