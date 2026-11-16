@@ -1,0 +1,7 @@
+{
+ "id": "anime-menu-profiles",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "[AnimePlayer: profiles menu]",
+ "find": "        -- [AnimePlayer: ui theme menu] colors change live and are remembered (uosc_theme.json)\n",
+ "replace": "        -- [AnimePlayer: profiles menu] your own profiles: name + preset + the kind of video (scripts/ap-profiles.lua)\n        { title = \"Profiles...\", icon = 'bookmark', value = \"script-message-to ap_profiles ap-profiles-open\" },\n        -- [AnimePlayer: ui theme menu] colors change live and are remembered (uosc_theme.json)\n"
+}

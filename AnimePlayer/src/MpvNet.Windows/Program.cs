@@ -1,4 +1,3 @@
-﻿
 using System.Windows.Forms;
 using System.Threading;
 
@@ -33,7 +32,16 @@ static class Program
 
             if (args.Length > 0 && args[0] == "--register-file-associations")
             {
-                FileAssociation.Register(args[1], args.Skip(1).ToArray());
+                try
+                {
+                    // args[0] = switch, args[1] = type (video/audio/image/unreg), the rest = extensions (Skip(2): the type itself is no extension)
+                    FileAssociation.Register(args[1], args.Skip(2).ToArray());
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteError(ex);
+                    Environment.Exit(1);   // the caller shows a failure instead of "done"
+                }
                 return;
             }
 

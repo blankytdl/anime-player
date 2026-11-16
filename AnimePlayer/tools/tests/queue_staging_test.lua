@@ -105,10 +105,11 @@ function utils.readdir() return {} end
 function utils.split_path(p) local d,n = p:match('^(.*/)([^/]*)$'); return d or '', n or p end
 package.loaded['mp'] = mp
 package.loaded['mp.utils'] = utils
+package.loaded['mp.options'] = {read_options = function() end}
 package.loaded['mp.msg'] = {info = print, warn = print, debug = function() end, error = print}
 os.execute('mkdir -p /tmp/qcfg/scripts; touch /tmp/qcfg/scripts/uosc; rm -f /tmp/qcfg/queue-list.json /tmp/qcfg/durations.json')
 
-local ok, err = pcall(dofile, '/home/claude/out/AnimePlayer/portable_config/scripts/ap-queue.lua')
+local ok, err = pcall(dofile, (os.getenv('AP_ROOT') or '.') .. '/portable_config/scripts/ap-queue.lua')
 if not ok then print('LOAD ERROR', err) os.exit(1) end
 
 LAST_MENU=nil
@@ -136,7 +137,7 @@ play_index(2); show('next -> B (after X)')
 -- ===== scenario 2: queue item already in the playlist (no duplicate)
 pl = {entry('C:/s/A.mkv'), entry('C:/s/B.mkv'), entry('C:/s/C.mkv'), entry('C:/s/D.mkv')}; cur = 0; playlist_changed(); load_current(); flush()
 handlers['ap-queue-add']('C:/s/D.mkv'); show('add D (already in playlist)')
-play_index(1); show('next -> D plays, no copy')
+play_index(1); show('next -> D plays (as a hidden copy, build 26)')
 -- ===== scenario 3: shuffle keeps the staged item behind the current one
 pl = {entry('C:/s/A.mkv'), entry('C:/s/B.mkv'), entry('C:/s/C.mkv')}; cur = 0; playlist_changed(); load_current(); flush()
 handlers['ap-queue-add']('C:/q/Z.mkv'); show('add Z')

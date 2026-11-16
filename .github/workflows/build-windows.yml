@@ -150,6 +150,7 @@ jobs:
             'dist/portable_config/input.conf',
             'dist/portable_config/scripts/00-thumbfast-path.lua',
             'dist/portable_config/scripts/ap-window-state.lua',
+            'dist/portable_config/scripts/thumbfast.lua',
             'dist/portable_config/scripts/uosc/main.lua'
           )
           $thumbResolver = Get-Content -LiteralPath 'dist/portable_config/scripts/00-thumbfast-path.lua' -Raw
@@ -162,6 +163,22 @@ jobs:
           }
           if (-not $pinStateScript.Contains("mp.register_event('shutdown'")) {
             throw 'Window pin-state script does not save its state on shutdown.'
+          }
+
+          $thumbfastScript = Get-Content -LiteralPath 'dist/portable_config/scripts/thumbfast.lua' -Raw
+          if (-not $thumbfastScript.Contains("utils.readdir(dir, 'dirs')")) {
+            throw 'Build 26 seek-bar preview must search for ffmpeg.exe recursively inside the player folder.'
+          }
+          if ($thumbfastScript -match "args = \{ 'ffprobe'|args = \{ 'ffmpeg'") {
+            throw 'Build 26 seek-bar preview must not fall back to PATH outside the player folder.'
+          }
+          $pinInput = Get-Content -LiteralPath 'dist/portable_config/input.conf' -Raw
+          if ($pinInput -notmatch '(?m)^\s*[!_]?\s*cycle\s+ontop\b') {
+            throw 'The Window > Toggle On Top input binding is missing.'
+          }
+          $buildScript = Get-Content -LiteralPath 'build.bat' -Raw
+          if ($buildScript -notmatch 'ap-window-state\.conf') {
+            throw 'build.bat does not preserve the saved portable pin state during config cleanup.'
           }
 
           foreach ($path in $required) {

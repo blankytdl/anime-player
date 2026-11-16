@@ -26,6 +26,8 @@ local SELF = mp.get_script_name()
 local MENU_TYPE = 'ap_queue'
 
 local queue = {}      -- pending items (not in the playlist yet)
+local done = {}       -- (build 26) queue videos that have been played: they STAY in the Queue tab (greyed, at the bottom) until you remove them
+local DONE_FILE = utils.join_path(cfg, 'queue-done.json')
 local staged = nil    -- queue item currently placed after the playing one
 local pending_idle_item = nil   -- queue video that was started on an idle player (it becomes playing_item when it loads)
 local playing_item = nil   -- queue item that is playing now: stays listed (as the active row) until it has ended
@@ -34,6 +36,7 @@ local last_move_t = -100        -- time of the last reorder: a drop is never an 
 local sel_index = nil         -- menu row that stays selected after a drag / move (the moved video)
 local click_row, click_time = nil, -100   -- first click of a double click (a row is opened by a DOUBLE click)
 local staged_id, staged_temp, staged_prev_id = nil, false, nil   -- playlist entry id of the staged item / is it an extra copy (hidden in the Playlist tab) / entry it sat behind before
+local staged_origin, consumed_origin = nil, nil   -- playlist entry the (staged / playing) queue copy sits behind: "the playlist carries on after it"
 local consumed_temp_id = nil   -- extra copy that is playing now: removed from the playlist when the next file starts
 
 local function is_url(p) return p:find('://', 1, true) ~= nil end
@@ -55,7 +58,32 @@ local function full()
 end
 
 local auto_scan_hook
+local function save_done()
+    local json = utils.format_json(done)
+    if not json then return end
+    local f = io.open(DONE_FILE .. '.part', 'wb')
+    if not f then return end
+    f:write(json); f:close()
+    os.remove(DONE_FILE)
+    os.rename(DONE_FILE .. '.part', DONE_FILE)
+end
+
+local function load_done()
+    local f = io.open(DONE_FILE, 'rb')
+    if not f then return {} end
+    local s = f:read('*a'); f:close()
+    local t = s and s ~= '' and utils.parse_json(s) or nil
+    local out = {}
+    if type(t) == 'table' then
+        for _, v in ipairs(t) do
+            if type(v) == 'string' and (is_url(v) or utils.file_info(v)) then out[#out + 1] = v end
+        end
+    end
+    return out
+end
+
 local function save()
+    save_done()
     if auto_scan_hook then auto_scan_hook() end
     local json = utils.format_json(full())
     if not json then return end
@@ -324,6 +352,15 @@ local function menu_data()
             value = i,
         }
     end
+    local base = #items
+    for k, p in ipairs(done) do
+        items[base + k] = {
+            title = is_url(p) and p or base_name(p),
+            hint = '\226\156\147 played',
+            muted = true,
+            value = base + k,
+        }
+    end
     return {
         type = MENU_TYPE,
         title = 'Queue (Type to Search)',
@@ -335,7 +372,7 @@ local function menu_data()
             { icon = 'delete_sweep', title = 'Remove all videos from the queue', value = 'script-message ap-queue-clear' },
         },
         footer = summarize(full()),
-        footnote = 'Double-click a row to play it. Hold a row and drag to reorder. Drop files on the player (top strip = Play later) to add.',
+        footnote = 'Double-click a row to play it (played videos stay at the bottom; double-click plays them again). Hold a row and drag to reorder. Drop files on the player (top strip = Play later) to add.',
         callback = { SELF, 'ap-queue-event' },
         on_move = 'callback',
         -- narrow window: only the two buttons that matter (dragging / ctrl+up/down reorder), so the buttons never cover the title
@@ -444,23 +481,26 @@ local function unstage()
     publish_hidden()
 end
 
--- put `path` into the playlist right after the playing entry; sets the staged_* state; returns the 0-based index or nil
+-- (build 26) sorting / shuffling the Playlist tab while a queue copy is playing would leave that copy somewhere in the new order, and
+-- "next" would then jump to whatever follows it there (back to earlier episodes). Put the playing copy right behind the entry it came from again.
+local function reanchor()
+    if not consumed_temp_id or not consumed_origin then return end
+    local ci, oi = find_by_id(consumed_temp_id), find_by_id(consumed_origin)
+    if not ci or not oi or ci == oi + 1 then return end
+    move_to_final(ci, ci < oi and oi or oi + 1)
+end
+
+-- put `path` into the playlist right after the playing entry as an EXTRA COPY; sets the staged_* state; returns the 0-based index
+-- (build 26) The queue video is ALWAYS an extra copy that is removed again once it has played. Earlier builds MOVED the playlist's
+-- own entry when the same file was already in the playlist and never moved it back: the episode order was scrambled and, when the
+-- queue was done, "next" went on with entries that had been pushed behind it = jumped back to earlier episodes (the reverse bug).
+-- The playlist itself is never reordered by the queue any more.
 local function stage_item(path)
-    local list = get_playlist()
     local cur = playlist_pos()
-    local found
-    for i, e in ipairs(list) do
-        if e.filename == path and (i - 1) ~= cur then found = i - 1; break end
-    end
+    local cur_entry = get_playlist()[cur + 1]
+    if cur_entry and consumed_temp_id and cur_entry.id == consumed_temp_id then staged_origin = consumed_origin
+    else staged_origin = cur_entry and cur_entry.id or nil end
     staged = path
-    if found then
-        staged_temp = false
-        staged_id = list[found + 1].id
-        staged_prev_id = list[found] and list[found].id or nil
-        local final = found < cur and cur or cur + 1
-        move_to_final(found, final)
-        return final
-    end
     staged_temp = true
     staged_prev_id = nil
     mp.commandv('loadfile', path, 'append')
@@ -608,6 +648,7 @@ local function shuffle_queue()
 end
 
 local function clear_queue()
+    done = {}
     edit(function(q) for i = #q, 1, -1 do q[i] = nil end end)
     mp.osd_message('Queue cleared', 2)
 end
@@ -699,6 +740,30 @@ local function on_event(json)
     if e.type == 'activate' then
         local i = tonumber(e.value)
         if not i then return end
+        local nfull = #full()
+        if i > nfull then
+            -- a PLAYED row (bottom of the list): remove it, show it, or double-click = play it again
+            local k = i - nfull
+            local p = done[k]
+            if not p then return end
+            if e.action == 'remove' then table.remove(done, k); save(); refresh()
+            elseif e.action == 'show' then show_in_explorer(p)
+            elseif e.action == 'up' or e.action == 'down' then return
+            else
+                local now = mp.get_time()
+                if click_row ~= i or now - click_time > 0.6 then click_row, click_time = i, now; sel_index = i; return end
+                click_row = nil
+                if now - last_activate < 0.8 then return end
+                last_activate = now
+                sel_index = nil
+                mp.commandv('script-message-to', 'uosc', 'close-menu', MENU_TYPE)
+                table.remove(done, k)
+                unstage()
+                table.insert(queue, 1, p)
+                play_now(1)
+            end
+            return
+        end
         if playing_item and i == 1 then
             -- the video that is playing now: nothing to start, it can be shown in Explorer or taken out of the list
             if e.action == 'show' then show_in_explorer(playing_item)
@@ -729,10 +794,11 @@ local function on_event(json)
         end
     elseif e.type == 'move' then
         local from, to = tonumber(e.from_index), tonumber(e.to_index)
-        if from and to and from > off and to > off then sel_index = to; last_move_t = mp.get_time(); move_item(from - off, to - off) end
+        if from and to and from > off and to > off and from <= #full() and to <= #full() then sel_index = to; last_move_t = mp.get_time(); move_item(from - off, to - off) end
     elseif e.type == 'key' and e.key == 'del' and e.selected_item then
         local i = tonumber(e.selected_item.value)
-        if i and i > off then remove_at(i - off) end
+        if i and i > #full() then table.remove(done, i - #full()); save(); refresh()
+        elseif i and i > off then remove_at(i - off) end
     end
 end
 
@@ -822,6 +888,7 @@ local function sort_playlist_now(mode)
             end
         end
     end
+    reanchor()
     stage()
     save()
 end
@@ -883,7 +950,8 @@ local function clear_watched_playlist()
 end
 
 local function clear_watched_queue(reopen)
-    local n = 0
+    local n = #done
+    done = {}
     edit(function(q)
         for i = #q, 1, -1 do
             if is_watched(q[i]) then table.remove(q, i); n = n + 1 end
@@ -905,7 +973,12 @@ end
 mp.register_script_message('ap-playlist-clear', clear_playlist)
 mp.register_event('end-file', function()
     mp.set_property_native('user-data/ap/no-autoload', false)
-    if playing_item then playing_item = nil; save(); refresh() end   -- the queue video has ended (or you moved on): now it leaves the queue
+    if playing_item then
+        -- the queue video has ended (or you moved on): it is NOT deleted any more, it moves to the played rows at the bottom of the Queue tab
+        done[#done + 1] = playing_item
+        if #done > 200 then table.remove(done, 1) end
+        playing_item = nil; save(); refresh()
+    end
 end)
 mp.register_script_message('ap-playlist-clear-watched', clear_watched_playlist)
 mp.register_script_message('ap-queue-clear-watched', function(r) clear_watched_queue(r == 'menu') end)
@@ -918,11 +991,11 @@ mp.register_event('file-loaded', function()
     if consumed_temp_id and consumed_temp_id ~= cur_id then
         local idx = find_by_id(consumed_temp_id)
         if idx and idx ~= playlist_pos() then mp.commandv('playlist-remove', tostring(idx)) end
-        consumed_temp_id = nil
+        consumed_temp_id, consumed_origin = nil, nil
     end
     if staged and staged_id == cur_id then
         -- the staged queue item is playing now: it stays in the Queue tab (as the playing row) until it has ended
-        if staged_temp then consumed_temp_id = staged_id end
+        if staged_temp then consumed_temp_id = staged_id; consumed_origin = staged_origin end
         playing_item = staged
         staged, staged_id, staged_temp, staged_prev_id = nil, nil, false, nil
         publish_hidden()
@@ -942,12 +1015,14 @@ end)
 mp.register_script_message('ap-playlist-shuffle', function()
     unstage()
     mp.commandv('playlist-shuffle')
+    reanchor()
     stage()
     save()
     mp.osd_message('Playlist shuffled', 2)
 end)
 
 queue = load_saved()
+done = load_done()
 mp.add_timeout(2, function()
     if playlist_count() == 0 and #queue > 0 then
         mp.osd_message('Queue: ' .. #queue .. ' video(s) waiting (open the Queue tab)', 4)
