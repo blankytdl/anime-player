@@ -78,8 +78,17 @@ jobs:
 
           $targetProject = Join-Path $root 'AnimePlayer'
           if ($project -ne $targetProject -and $project -ne $root) {
-            if (Test-Path -LiteralPath $targetProject) { Remove-Item -LiteralPath $targetProject -Recurse -Force }
-            Move-Item -LiteralPath $project -Destination $targetProject -Force
+            if ($chunks.Count -gt 0 -and (Test-Path -LiteralPath $targetProject)) {
+              # Incremental archives contain only changed files. Merge them into the
+              # checked-out source tree so unchanged project files are preserved.
+              & robocopy.exe $project $targetProject /E /COPY:DAT /R:2 /W:1
+              $copyExit = $LASTEXITCODE
+              if ($copyExit -ge 8) { throw "Could not merge the source update (robocopy exit $copyExit)." }
+            }
+            else {
+              if (Test-Path -LiteralPath $targetProject) { Remove-Item -LiteralPath $targetProject -Recurse -Force }
+              Move-Item -LiteralPath $project -Destination $targetProject -Force
+            }
             $project = $targetProject
           }
 
