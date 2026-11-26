@@ -12,7 +12,7 @@ rem                  Every decision is listed in key-conflicts.txt in the config
 set POTPLAYER_WINS=1
 set FFMPEG_DIR=ffmpeg-9.0.2-essentials_build
 rem CLEAN_INSTALL: 1 = after the backup, files in the config folder that are NOT part of the new config are deleted (old clashing
-rem                  scripts, leftovers of earlier builds). resume.json, queue.json, queue-list.json, uosc_theme.json (the saved theme), watched-files.json, ap-volume.conf, ap-window-state.conf, watched.log, anime-settings.json, uosc_history.json,
+rem                  scripts, leftovers of earlier builds). resume.json, queue.json, queue-list.json, uosc_theme.json (the saved theme), watched-files.json, ap-volume.conf, watched.log, anime-settings.json, uosc_history.json,
 rem                  watch_later and cache are always kept. 0 = only add / update files.
 set CLEAN_INSTALL=1
 rem USE_BUILD_FOLDER: 1 = when mpv-anime-build\ is present, install a fresh copy of IT (plus the AnimePlayer additions) instead of
@@ -136,6 +136,8 @@ if "!MODE!"=="BASIC" robocopy "portable_config" "!STAGE!" /E /NFL /NDL /NJH /NJS
 
 if "!MODE!"=="BASIC" (
   echo [WARN] No existing config and no mpv-anime-build folder - installing the basic built-in config.
+  if not exist "!STAGE!\scripts" mkdir "!STAGE!\scripts"
+  copy /y "portable_config\scripts-extra\thumbfast.lua" "!STAGE!\scripts\thumbfast.lua" >nul
   goto :deploy
 )
 
@@ -143,7 +145,7 @@ rem add ONLY the new files - never my mpv.conf / input.conf / overrides.conf
 if not exist "!STAGE!\scripts" mkdir "!STAGE!\scripts"
 if not exist "!STAGE!\script-opts" mkdir "!STAGE!\script-opts"
 for %%f in ("portable_config\scripts\ap-*.lua" "portable_config\scripts\00-thumbfast-path.lua" "portable_config\scripts\midclick-jump.lua" "portable_config\scripts\speed-osd.lua") do copy /y "%%~f" "!STAGE!\scripts\" >nul
-rem seek-bar preview without a second mpv.exe: our thumbfast replaces the build's (the build's copy is kept as thumbfast.lua.ap-backup)
+rem seek-bar preview without a second mpv.exe - our thumbfast replaces the build one, which is kept as thumbfast.lua.ap-backup
 if exist "!STAGE!\scripts\thumbfast.lua" if not exist "!STAGE!\scripts\thumbfast.lua.ap-backup" copy /y "!STAGE!\scripts\thumbfast.lua" "!STAGE!\scripts\thumbfast.lua.ap-backup" >nul
 if exist "!STAGE!\scripts\thumbfast\main.lua" ren "!STAGE!\scripts\thumbfast" thumbfast.ap-disabled
 copy /y "portable_config\scripts-extra\thumbfast.lua" "!STAGE!\scripts\thumbfast.lua" >nul
@@ -175,11 +177,11 @@ if exist "!TARGET!\mpv.conf" (
 if not exist "!TARGET!" mkdir "!TARGET!"
 if "%CLEAN_INSTALL%"=="1" (
   echo Clean install: leftovers that are not part of the new config are being deleted - your data and the backup are kept.
-  robocopy "!STAGE!" "!TARGET!" /MIR /XD cache watch_later /XF anime-settings.json resume.json queue.json queue-list.json watched.log uosc_history.json uosc_theme.json watched-files.json durations.json ap-volume.conf ap-window-state.conf /NFL /NDL /NJH /NJS /NP >nul
+  robocopy "!STAGE!" "!TARGET!" /MIR /XD cache watch_later /XF anime-settings.json resume.json queue.json queue-list.json watched.log uosc_history.json uosc_theme.json watched-files.json durations.json ap-volume.conf /NFL /NDL /NJH /NJS /NP >nul
 ) else (
-  robocopy "!STAGE!" "!TARGET!" /E /XF anime-settings.json resume.json queue.json queue-list.json watched.log uosc_theme.json watched-files.json durations.json ap-volume.conf ap-window-state.conf /NFL /NDL /NJH /NJS /NP >nul
+  robocopy "!STAGE!" "!TARGET!" /E /XF anime-settings.json resume.json queue.json queue-list.json watched.log uosc_theme.json watched-files.json durations.json ap-volume.conf /NFL /NDL /NJH /NJS /NP >nul
 )
-for %%f in (anime-settings.json resume.json queue.json queue-list.json watched.log uosc_history.json uosc_theme.json watched-files.json durations.json ap-volume.conf) do (
+for %%f in (anime-settings.json resume.json queue.json queue-list.json watched.log uosc_theme.json watched-files.json durations.json ap-volume.conf) do (
   if not exist "!TARGET!\%%f" if exist "!STAGE!\%%f" copy /y "!STAGE!\%%f" "!TARGET!\%%f" >nul
 )
 echo Config installed to !TARGET!
@@ -201,3 +203,4 @@ if !TRY! GEQ 4 exit /b 1
 echo Restore failed - waiting 5 seconds and retrying...
 timeout /t 5 /nobreak >nul
 goto restore_try
+

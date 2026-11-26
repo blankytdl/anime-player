@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace MpvNet.Windows.WinForms;
 
-// Shown while files are dragged over the player: top strip = "Play later" (adds to the Queue), the rest = "Play now".
+// Shown while files are dragged over the player: top strip = "Play later" (adds to the end of the playlist), the rest = "Play now".
 // Click-through (WS_EX_TRANSPARENT) so the drag keeps going to the main window underneath.
 public sealed class DropOverlay : Form
 {

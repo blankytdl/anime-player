@@ -1,0 +1,7 @@
+{
+ "id": "anime-menu-compare-v2",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "[AnimePlayer: compare menu v2]",
+ "find": "        -- [AnimePlayer: compare menu] shaders OFF vs ON (scripts/ap-compare.lua)\n        {\n            title = \"Compare shaders OFF / ON\",\n            icon = 'compare',\n            items = {\n                { title = \"Split view (frozen frame: left OFF, right ON)\", icon = 'vertical_split', value = \"script-message-to ap_compare split\" },\n                { title = \"Flip OFF / ON now\", icon = 'swap_horiz', value = \"script-message-to ap_compare flip\" },\n                { title = \"Stop compare\", icon = 'close', value = \"script-message-to ap_compare stop\" },\n            }\n        },\n",
+ "replace": "        -- [AnimePlayer: compare menu v2] shaders OFF vs ON (scripts/ap-compare.lua), same look as the other rows\n        {\n            title = \"Compare Shaders\",\n            items = {\n                { title = \"Split view (left OFF, right ON)\", value = \"script-message-to ap_compare split\" },\n                { title = \"Flip OFF / ON\", value = \"script-message-to ap_compare flip\" },\n                { title = \"Stop compare\", value = \"script-message-to ap_compare stop\" },\n            }\n        },\n"
+}

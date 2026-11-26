@@ -1,0 +1,7 @@
+{
+ "id": "anime-menu-profiles-v2",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "[AnimePlayer: profiles menu v2]",
+ "find": "        -- [AnimePlayer: profiles menu] your own profiles: name + preset + the kind of video (scripts/ap-profiles.lua)\n        { title = \"Profiles...\", icon = 'bookmark', value = \"script-message-to ap_profiles ap-profiles-open\" },\n",
+ "replace": "        -- [AnimePlayer: profiles menu v2] same look as the other rows (no icons); opens the profile manager (scripts/ap-profiles.lua)\n        { title = \"Profiles...\", value = \"script-message-to ap_profiles ap-profiles-open\" },\n"
+}

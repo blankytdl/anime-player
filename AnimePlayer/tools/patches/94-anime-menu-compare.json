@@ -1,0 +1,7 @@
+{
+ "id": "anime-menu-compare",
+ "file": "scripts/anime_profile_controller.lua",
+ "marker": "[AnimePlayer: compare menu]",
+ "find": "        -- [AnimePlayer: ui theme menu] colors change live and are remembered (uosc_theme.json)\n",
+ "replace": "        -- [AnimePlayer: compare menu] shaders OFF vs ON (scripts/ap-compare.lua)\n        {\n            title = \"Compare shaders OFF / ON\",\n            icon = 'compare',\n            items = {\n                { title = \"Split view (frozen frame: left OFF, right ON)\", icon = 'vertical_split', value = \"script-message-to ap_compare split\" },\n                { title = \"Flip OFF / ON now\", icon = 'swap_horiz', value = \"script-message-to ap_compare flip\" },\n                { title = \"Stop compare\", icon = 'close', value = \"script-message-to ap_compare stop\" },\n            }\n        },\n        -- [AnimePlayer: ui theme menu] colors change live and are remembered (uosc_theme.json)\n"
+}

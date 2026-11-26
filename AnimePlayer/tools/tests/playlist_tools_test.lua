@@ -1,4 +1,4 @@
--- simulated mpv playlist + events to exercise ap-queue.lua
+-- simulated mpv playlist + events to exercise ap-queue.lua (build 36: playlist tools only, no queue)
 local handlers, events, observers, timers = {}, {}, {}, {}
 local props = {}
 local pl = {}          -- {id, filename}
@@ -31,13 +31,15 @@ function mp.get_property_number(n, d)
 end
 function mp.get_property(n) if n == 'path' then return pl[cur + 1] and pl[cur + 1].filename end return nil end
 function mp.get_property_native(n) if n == 'playlist' then return native_playlist() end return props[n] end
-function mp.get_property_bool() return false end
+BOOL = {}
+function mp.get_property_bool(n, d) if BOOL[n] ~= nil then return BOOL[n] end return d or false end
 function mp.set_property_native(n, v) props[n] = v end
 function mp.set_property(n, v) props[n] = v end
 function mp.set_property_number() end
 function mp.set_property_bool() end
 function mp.command() end
-function mp.command_native_async() end
+PROBES = {}
+function mp.command_native_async(t, cb) if t.args and t.args[1] ~= 'explorer.exe' then PROBES[#PROBES + 1] = {args = t.args, cb = cb} end end
 local function load_current()
   for _, f in ipairs(events['end-file'] or {}) do f({reason = 'stop'}) end
   for _, f in ipairs(events['file-loaded'] or {}) do f({}) end
@@ -48,6 +50,7 @@ function mp.commandv(...)
   local c = a[1]
   if c == 'loadfile' then
     if a[3] == 'append' then table.insert(pl, entry(a[2])); playlist_changed()
+    elseif a[3] == 'append-play' then table.insert(pl, entry(a[2])); playlist_changed(); if cur < 0 then cur = #pl - 1; load_current() end
     elseif a[3] == 'replace' then pl = {entry(a[2])}; cur = 0; playlist_changed(); load_current() end
   elseif c == 'playlist-move' then
     local from, to = tonumber(a[2]), tonumber(a[3])
@@ -108,7 +111,7 @@ package.loaded['mp'] = mp
 package.loaded['mp.utils'] = utils
 package.loaded['mp.options'] = {read_options = function() end}
 package.loaded['mp.msg'] = {info = print, warn = print, debug = function() end, error = print}
-os.execute('mkdir -p /tmp/qcfg/scripts; touch /tmp/qcfg/scripts/uosc; rm -f /tmp/qcfg/queue-list.json /tmp/qcfg/durations.json')
+os.execute('mkdir -p /tmp/qcfg/scripts; touch /tmp/qcfg/scripts/uosc; rm -f /tmp/qcfg/durations.json /tmp/qcfg/playlist-inbox.txt /tmp/qcfg/queue-inbox.txt')
 
 local ok, err = pcall(dofile, (os.getenv('AP_ROOT') or '.') .. '/portable_config/scripts/ap-queue.lua')
 if not ok then print('LOAD ERROR', err) os.exit(1) end
@@ -143,54 +146,93 @@ local function setup(list, start)
   pl = {}; for _, p in ipairs(list) do pl[#pl+1] = entry(p) end
   cur = start; played = {}; playlist_changed(); load_current(); flush()
 end
-local function click(i) TIME=TIME+5; local j = '{"type":"activate","value":'..i..'}'; handlers['ap-queue-event'](j); handlers['ap-queue-event'](j); flush() end
-local function run(title, list, start, queue_adds, click_row, steps)
-  setup(list, start)
-  for _, q in ipairs(queue_adds) do handlers['ap-queue-add'](q) end; flush()
-  print('== '..title); print('  before        ', names())
-  if click_row then click(click_row) ; print('  play queue row', names()) end
-  local seq = {}
-  for i = 1, steps do
-    local before = pl[cur+1] and pl[cur+1].filename:match('[^/]+$')
-    if not advance(1) then break end
-    flush(); seq[#seq+1] = pl[cur+1].filename:match('[^/]+$')
+
+local function osd_has(s) for _, l in ipairs(log) do if l:find(s, 1, true) then return true end end return false end
+local bad = 0
+local function expect(label, cond) print((cond and '  ok   ' or '  FAIL ') .. label); if not cond then bad = bad + 1 end end
+local E = {'C:/s/E1.mkv','C:/s/E2.mkv','C:/s/E3.mkv'}
+
+print('== the Queue is gone')
+expect('queue-playing flag is "no"', props['user-data/ap/queue-playing'] == 'no')
+log = {}; handlers['ap-queue-open'](); expect('an old Queue message says the Queue was removed', osd_has('Queue was removed'))
+expect('old Queue messages are known (no silent drop)', handlers['ap-queue-add'] ~= nil and handlers['ap-queue-menu'] ~= nil and handlers['ap-queue-attach'] ~= nil)
+
+print('== PLAY LATER: videos go to the END of the playlist, filtered and without duplicates')
+setup(E, 0); log = {}
+handlers['ap-playlist-add']('C:/q/X.mkv', 'C:/q/x.MKV', 'C:/q/cover.jpg', 'C:/s/E1.mkv', 'C:\\q\\X.mkv', 'C:/q/song.mp3', 'C:/q/loop.gif'); flush()
+expect('E1 E2 E3 X song.mp3 loop.gif (current kept, jpg + duplicates skipped)', names() == '[E1.mkv] E2.mkv E3.mkv X.mkv song.mp3 loop.gif')
+expect('message tells what was skipped', osd_has('Added 3 to the playlist') and osd_has('already in the playlist') and osd_has('not a video'))
+log = {}; handlers['ap-playlist-add']('C:/q/X.mkv'); flush()
+expect('adding the same video again changes nothing', names() == '[E1.mkv] E2.mkv E3.mkv X.mkv song.mp3 loop.gif' and osd_has('Nothing added'))
+
+print('== PLAY LATER on an empty player: the first video starts, the rest follow it')
+setup({'C:/s/E1.mkv'}, 0); pl = {}; cur = -1; playlist_changed(); flush()
+BOOL['idle-active'] = true
+handlers['ap-playlist-add']('C:/q/A.mkv', 'C:/q/B.mkv'); flush()
+BOOL['idle-active'] = nil
+expect('A plays, B waits', names() == '[A.mkv] B.mkv')
+
+print('== PLAY LATER from drag & drop / Explorer (inbox files, new and old name)')
+setup(E, 0)
+local f = io.open('/tmp/qcfg/playlist-inbox.txt', 'wb'); f:write('C:/q/D1.mkv\r\nC:/q/D2.mp4\r\nC:/q/readme.txt\r\n'); f:close()
+handlers['ap-playlist-inbox'](); flush()
+expect('D1 D2 appended, txt skipped', names() == '[E1.mkv] E2.mkv E3.mkv D1.mkv D2.mp4')
+f = io.open('/tmp/qcfg/queue-inbox.txt', 'wb'); f:write('C:/q/D3.mkv\r\n'); f:close()
+handlers['ap-queue-inbox'](); flush()
+expect('the inbox of an older player build still works', names() == '[E1.mkv] E2.mkv E3.mkv D1.mkv D2.mp4 D3.mkv')
+expect('inbox files are removed after reading', io.open('/tmp/qcfg/playlist-inbox.txt', 'rb') == nil and io.open('/tmp/qcfg/queue-inbox.txt', 'rb') == nil)
+
+print('== the last video sits on its final frame (keep-open): Play later starts the new one')
+setup(E, 2); BOOL['eof-reached'] = true
+handlers['ap-playlist-add']('C:/q/N.mkv'); flush(); BOOL['eof-reached'] = nil
+expect('N is playing', names() == 'E1.mkv E2.mkv E3.mkv [N.mkv]')
+
+print('== PLAYLIST cleaning (autoload, Open, drag): video / gif / audio only, every file once, the playing entry stays')
+setup({'C:/s/E1.mkv','C:/s/song.mp3','C:/s/cover.jpg','C:/s/E1.mkv','C:/s/loop.gif','C:/s/LOOP.GIF','C:/s/E2.mkv','C:/s/sub.ass'}, 0); flush()
+expect('E1 song.mp3 loop.gif E2', names() == '[E1.mkv] song.mp3 loop.gif E2.mkv')
+setup({'C:/s/E1.mkv','C:/s/E2.mkv','C:/s/E1.mkv'}, 2); flush()
+expect('the playing (later) E1 stays, the earlier copy goes', names() == 'E2.mkv [E1.mkv]')
+setup({'C:/s/song.mp3','C:/s/a.mkv','C:/s/b.flac','C:/s/c.jpg'}, 0); flush()
+expect('audio stays, picture goes', names() == '[song.mp3] a.mkv b.flac')
+
+local function drain()   -- finish every reader that an earlier section left running
+  for _ = 1, 50 do
+    flush()
+    if #PROBES == 0 then break end
+    local p = table.remove(PROBES, 1); p.cb(true, {stdout = '60\n'})
   end
-  print('  playing then  ', table.concat(seq, ' > ')); print('  after         ', names())
 end
-local E = {'C:/s/E1.mkv','C:/s/E2.mkv','C:/s/E3.mkv','C:/s/E4.mkv','C:/s/E5.mkv','C:/s/E6.mkv','C:/s/E7.mkv'}
-run('A: other-folder queue items, started from Queue tab', E, 4, {'C:/q/X.mkv','C:/q/Y.mkv'}, 1, 4)
-run('B: queue items that are EARLIER playlist entries', E, 4, {'C:/s/E1.mkv','C:/s/E2.mkv'}, 1, 5)
-run('C: queue items that are LATER playlist entries', E, 1, {'C:/s/E5.mkv','C:/s/E6.mkv'}, 1, 5)
-run('D: queue = same ep as current', E, 3, {'C:/s/E4.mkv','C:/q/X.mkv'}, 1, 4)
--- played queue videos stay (greyed) at the bottom of the Queue tab
-setup(E, 4)
-handlers['ap-queue-add']('C:/q/X.mkv'); handlers['ap-queue-add']('C:/q/Y.mkv'); flush()
-click(1)
-advance(1); flush(); advance(1); flush()
-handlers['ap-queue-open'](); flush()
-print('== played rows stay in the queue menu:')
-print(string.sub(tostring(LAST_MENU),1,1500)); for t, h in tostring(LAST_MENU):gmatch([[\"title\":\"([^\"]*)\".-\"hint\":\"([^\"]*)\"]]) do print("  ", t, h) end
--- sorting / shuffling the playlist while a queue video plays must not change where the playlist goes on
-for _, mode in ipairs({'reverse', 'shuffle'}) do
-  setup(E, 2)
-  handlers['ap-queue-add']('C:/q/X.mkv'); handlers['ap-queue-add']('C:/q/Y.mkv'); flush()
-  click(1)
-  if mode == 'shuffle' then handlers['ap-playlist-shuffle']() else handlers['ap-playlist-sort'](mode) end
-  flush(); print('== '..mode..' while X plays:', names())
-  local seq = {}
-  for i = 1, 3 do if not advance(1) then break end; flush(); seq[#seq+1] = pl[cur+1].filename:match('[^/]+$') end
-  print('   next ones:', table.concat(seq, ' > '))
+print('== DURATIONS never compete with a playing video')
+BOOL.pause = true; drain(); BOOL.pause = false; BOOL['idle-active'] = false
+local D = {'C:/d/D1.mkv','C:/d/D2.mkv','C:/d/D3.mkv'}
+setup(D, 0); PROBES = {}; BOOL.pause = false; BOOL['idle-active'] = false; flush()
+expect('video plays: nothing is read in the background', #PROBES == 0)
+BOOL.pause = true; fire('pause', true); flush()
+expect('paused: reading starts, ONE file at a time', #PROBES == 1)
+local done_n = 0
+while #PROBES > 0 and done_n < 10 do
+  expect('never more than one reader at once (#' .. (done_n + 1) .. ')', #PROBES == 1)
+  local p = table.remove(PROBES, 1); done_n = done_n + 1
+  p.cb(true, {stdout = '1440.5\n'}); flush()
 end
--- Play later on an EMPTY player: first starts, the rest follow in order, then the player is idle (nothing is deleted, nothing replays)
-pl = {}; cur = -1; playlist_changed(); flush()
-handlers['ap-queue-add']('C:/q/P.mkv'); handlers['ap-queue-add']('C:/q/Q.mkv'); handlers['ap-queue-add']('C:/q/R.mkv'); flush()
-print('== idle + 3 queued:', names())
-local seq = {}
-for i = 1, 4 do if not advance(1) then break end; flush(); seq[#seq+1] = pl[cur+1].filename:match('[^/]+$') end
-print('   next ones:', table.concat(seq, ' > '))
--- replay a played row
-local nf = 0
-handlers['ap-queue-open'](); flush()
-print('   replay row 1 of the played list:'); TIME = TIME + 5
-handlers['ap-queue-event']('{"type":"activate","value":2}'); handlers['ap-queue-event']('{"type":"activate","value":2}'); flush()
-print('   now:', names())
+expect('all three were read', done_n == 3)
+flush()
+local map = props['user-data/ap/durations'] or {}
+expect('durations are published for the rows', map['c:/d/d1.mkv'] == 1440.5 and map['c:/d/d3.mkv'] == 1440.5)
+expect('the footer shows the total', (props['user-data/ap/playlist-footer'] or ''):find('Total 1:12:02') ~= nil)
+
+print('== manual "Read all durations" while a video plays: one file at a time')
+BOOL.pause = true; drain(); BOOL.pause = false
+setup({'C:/z/M1.mkv','C:/z/M2.mkv','C:/z/M3.mkv'}, 0); PROBES = {}; BOOL.pause = false; flush()
+handlers['ap-durations-scan'](); 
+expect('manual: one at a time while playing', #PROBES == 1)
+
+print('== sort / shuffle / clear / remove watched (no queue involved)')
+setup({'C:/s/E3.mkv','C:/s/E1.mkv','C:/s/E2.mkv'}, 0); handlers['ap-playlist-sort']('name'); flush()
+expect('sorted A-Z, playing entry still playing', names() == 'E1.mkv E2.mkv [E3.mkv]' or names() == 'E1.mkv E2.mkv [E3.mkv]')
+setup(E, 0); fire('user-data/ap/watched', {['c:/s/e2.mkv'] = true}); handlers['ap-playlist-clear-watched'](); flush()
+expect('watched E2 removed', names() == '[E1.mkv] E3.mkv')
+setup(E, 1); handlers['ap-playlist-clear'](); flush()
+expect('remove all keeps the playing one', names() == '[E2.mkv]')
+
+print(bad == 0 and 'PLAYLIST TOOLS: ALL OK' or ('PLAYLIST TOOLS FAILURES: ' .. bad))

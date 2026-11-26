@@ -39,7 +39,7 @@ if ($anime) {
     Check 'Controls > Subtitles: visual adjuster' (Has 'scripts\uosc\main.lua' 'AnimePlayer: visual subtitle adjuster')
 }
 else { Write-Host '  (no uosc here: basic AnimePlayer config)' }
-foreach ($s in 'ap-smooth.lua', 'ap-resume.lua', 'ap-queue.lua', 'ap-video.lua', 'ap-speed.lua', 'ap-watch.lua', 'ap-volume.lua', 'ap-fullscreen.lua', 'ap-responsive.lua', 'midclick-jump.lua', '00-thumbfast-path.lua') {
+foreach ($s in 'ap-smooth.lua', 'ap-resume.lua', 'ap-queue.lua', 'ap-video.lua', 'ap-speed.lua', 'ap-watch.lua', 'ap-volume.lua', 'ap-fullscreen.lua', 'ap-responsive.lua', 'midclick-jump.lua', '00-thumbfast-path.lua', 'ap-screenshot.lua', 'ap-eof-guard.lua') {
     Check ('script ' + $s) (Test-Path -LiteralPath (Join-Path $Cfg ('scripts\' + $s)))
 }
 Check 'middle mouse button = jump forward (bound inside scripts\midclick-jump.lua)' (Has 'scripts\midclick-jump.lua' "add_key_binding('MBTN_MID'")

@@ -1,0 +1,7 @@
+{
+ "id": "99d-add-videos-tool-b",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[build36: add videos (b)]",
+ "find": "\ttools = {   -- [AP30: playlist tools] the same four buttons as the Queue tab (a later duplicate of this key from an earlier patch is harmless)\n",
+ "replace": "\ttools = {   -- [AP30: playlist tools] the same four buttons as the Queue tab (a later duplicate of this key from an earlier patch is harmless)\n\t\t{icon = 'playlist_add', title = t('Add videos'), value = 'script-message ap-playlist-add-menu'},  -- [build36: add videos (b)]\n"
+}

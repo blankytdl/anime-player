@@ -1,0 +1,7 @@
+{
+ "id": "menus-tools-pass-again",
+ "file": "scripts/uosc/lib/menus.lua",
+ "marker": "[AP30: tools pass]",
+ "find": "\t\t\ttabs = opts.tabs,  -- [AnimePlayer: menu tabs pass]\n",
+ "replace": "\t\t\ttabs = opts.tabs,  -- [AnimePlayer: menu tabs pass]\n\t\t\ttools = opts.tools,  -- [AP30: tools pass]\n"
+}

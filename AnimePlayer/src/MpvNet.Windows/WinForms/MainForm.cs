@@ -1252,8 +1252,17 @@ public partial class MainForm : Form
                             Player.LoadFiles(args, true, false);
                             break;
                         case "queue":
-                            foreach (string file in args)
-                                Player.CommandV("loadfile", file, "append");
+                            // (build 36) "Add all to AnimePlayer playlist" from Explorer / --queue: at the END of the playlist (inbox file read by ap-queue.lua); plain append as the fallback
+                            try
+                            {
+                                File.WriteAllLines(Path.Combine(Player.ConfigFolder, "playlist-inbox.txt"), args, new System.Text.UTF8Encoding(false));
+                                Player.CommandV("script-message", "ap-playlist-inbox");
+                            }
+                            catch
+                            {
+                                foreach (string file in args)
+                                    Player.CommandV("loadfile", file, "append");
+                            }
                             break;
                         case "command":
                             Player.Command(args[0]);
@@ -1460,6 +1469,9 @@ public partial class MainForm : Form
     {
         base.OnShown(e);
 
+        // the pin (ontop) may have been restored by a script before this window existed: apply it now that the window is shown
+        try { TopMost = Player.GetPropertyString("ontop") == "yes"; } catch { }
+
         if (WindowState == FormWindowState.Maximized)
             Player.SetPropertyBool("window-maximized", true);
 
@@ -1577,7 +1589,7 @@ public partial class MainForm : Form
         return !r.IsEmpty;
     }
 
-    DropOverlay? _dropOverlay;   // [AP8: drop zones] "Play later" (queue) / "Play now"
+    DropOverlay? _dropOverlay;   // [AP8: drop zones] "Play later" (end of the playlist) / "Play now"
 
     protected override void OnDragEnter(DragEventArgs e)
     {
@@ -1625,11 +1637,11 @@ public partial class MainForm : Form
 
         if (later)
         {
-            // Play later = into the Queue tab. The paths go through a small inbox file (no argument / encoding limits), ap-queue.lua reads it.
+            // Play later = at the END of the playlist. The paths go through a small inbox file (no argument / encoding limits), ap-queue.lua reads it.
             try
             {
-                File.WriteAllLines(Path.Combine(Player.ConfigFolder, "queue-inbox.txt"), files, new System.Text.UTF8Encoding(false));
-                Player.CommandV("script-message", "ap-queue-inbox");
+                File.WriteAllLines(Path.Combine(Player.ConfigFolder, "playlist-inbox.txt"), files, new System.Text.UTF8Encoding(false));
+                Player.CommandV("script-message", "ap-playlist-inbox");
             }
             catch (Exception ex) { MessageBox.Show(ex.Message, "Play later"); }
         }

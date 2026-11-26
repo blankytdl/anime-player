@@ -1,0 +1,7 @@
+{
+ "id": "99a-remove-queue-tab",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[build36: the Queue tab was removed]",
+ "find": "\ttabs = {{title = t('Playlist'), active = true}, {title = t('Queue'), value = 'script-message ap-queue-open'}},  -- [AnimePlayer: playlist tabs]\n",
+ "replace": "\ttabs = {{title = t('Playlist'), active = true}},  -- [AnimePlayer: playlist tabs] [build36: the Queue tab was removed]\n"
+}

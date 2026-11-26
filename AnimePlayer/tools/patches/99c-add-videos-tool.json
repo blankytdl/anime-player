@@ -1,0 +1,7 @@
+{
+ "id": "99c-add-videos-tool",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[build36: add videos]",
+ "find": "\t\t{icon = 'done_all', title = t('Remove watched'), value = 'script-message ap-playlist-clear-watched'},  -- [AP13: remove watched]\n",
+ "replace": "\t\t{icon = 'playlist_add', title = t('Add videos'), value = 'script-message ap-playlist-add-menu'},  -- [build36: add videos] files / folder / clipboard go to the END of the playlist\n\t\t{icon = 'done_all', title = t('Remove watched'), value = 'script-message ap-playlist-clear-watched'},  -- [AP13: remove watched]\n"
+}

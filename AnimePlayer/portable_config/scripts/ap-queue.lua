@@ -1,45 +1,40 @@
--- AnimePlayer: queue (round 7).
+-- AnimePlayer: playlist tools (build 36).
 --
---   Playlist tab = mpv's playlist: the episodes the player recognised by name (autoload) - uosc shows / reorders that.
---   Queue tab    = YOUR list: videos you add on purpose. They play one after another, right after the current video,
---                  and then the playlist carries on. Saved in queue-list.json, so it survives a restart.
---
--- How it plays: the first queue item is placed in the playlist right after the current video ("staged"), so mpv itself
--- plays it next and the episode playlist is never destroyed. When it starts playing, the next queue item is staged.
--- Everything you do in the Queue tab first takes the staged item back, edits the list, then stages again.
+-- The Queue is gone. This script (the file keeps its old name so nothing that points at it breaks) now only looks after the PLAYLIST:
+--   * "Play later" (drag & drop onto the player, Explorer "Add all to AnimePlayer playlist", the Add videos buttons) = put videos at the END of the playlist
+--   * the playlist only holds video, gif and audio files, every file once (the playing entry is never touched, files on disk are never touched)
+--   * lengths of the videos (Total / Left in the footer, the time at the end of every row, "sort by length"), read with ffprobe WITHOUT disturbing playback:
+--     automatic reading happens only while nothing plays (paused / no video), one file at a time; "Read all durations" is the manual way
+--   * sort / shuffle / remove watched / remove all (keeps the playing one), show in Explorer
 local mp = require 'mp'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
--- queue_mode (script-opts/ap-queue.conf):
---   tabs  = each tab has its OWN "next file": a video started from the Playlist tab goes on with the playlist (Next key / button and the end of
---           the video alike); a video started from the Queue tab goes on with the next queue video, and when the queue is empty the playlist
---           carries on where it was.
---   after = the old behaviour: the queue always plays right after the current video, whichever tab it was started from.
-local opts = { queue_mode = 'tabs' }
+local opts = {
+    video_only = true,       -- only video, gif and audio formats go into the playlist (no pictures, subtitles, other files)
+    dedupe = true,           -- the same file is listed once
+    allow_urls = true,       -- links (http, rtmp ...) cannot be judged by an extension: kept (no = only local files)
+    probe_while_playing = false,   -- yes = also read durations in the background while a video plays (can cause stutter)
+}
 require('mp.options').read_options(opts, 'ap-queue')
 
 local cfg = mp.command_native({ 'expand-path', '~~/' })
-local FILE = utils.join_path(cfg, 'queue-list.json')
-local PART = FILE .. '.part'
-local SELF = mp.get_script_name()
-local MENU_TYPE = 'ap_queue'
-
-local queue = {}      -- pending items (not in the playlist yet)
-local done = {}       -- (build 26) queue videos that have been played: they STAY in the Queue tab (greyed, at the bottom) until you remove them
-local DONE_FILE = utils.join_path(cfg, 'queue-done.json')
-local staged = nil    -- queue item currently placed after the playing one
-local pending_idle_item = nil   -- queue video that was started on an idle player (it becomes playing_item when it loads)
-local playing_item = nil   -- queue item that is playing now: stays listed (as the active row) until it has ended
-local last_activate = -100    -- double-click guard
-local last_move_t = -100        -- time of the last reorder: a drop is never an "open" click
-local sel_index = nil         -- menu row that stays selected after a drag / move (the moved video)
-local click_row, click_time = nil, -100   -- first click of a double click (a row is opened by a DOUBLE click)
-local staged_id, staged_temp, staged_prev_id = nil, false, nil   -- playlist entry id of the staged item / is it an extra copy (hidden in the Playlist tab) / entry it sat behind before
-local staged_origin, consumed_origin = nil, nil   -- playlist entry the (staged / playing) queue copy sits behind: "the playlist carries on after it"
-local consumed_temp_id = nil   -- extra copy that is playing now: removed from the playlist when the next file starts
 
 local function is_url(p) return p:find('://', 1, true) ~= nil end
+
+-- video formats + gif + audio formats. No pictures, subtitles or other files.
+local VIDEO_EXT = {}
+for e in ('mkv mp4 avi webm mov m4v ts m2ts mts flv f4v wmv asf mpg mpeg mpe vob ogv 3gp 3g2 divx rm rmvb mxf gif'):gmatch('%S+') do VIDEO_EXT[e] = true end
+for e in ('mp3 flac m4a mka mp2 ogg opus aac ac3 dts wav wma ape alac wv'):gmatch('%S+') do VIDEO_EXT[e] = true end
+local function is_video_path(p)
+    if type(p) ~= 'string' or p == '' then return false end
+    if not opts.video_only then return true end
+    if is_url(p) then return opts.allow_urls end
+    local ext = p:match('%.([^./\\]+)$')
+    return ext ~= nil and VIDEO_EXT[ext:lower()] == true
+end
+-- one key per file: case, slashes and a space / quote at the ends never make two spellings of the same file
+local function path_key(p) return ((p:lower():gsub('\\', '/')):gsub('^%s+', ''):gsub('%s+$', '')) end
 local function base_name(p) local _, n = utils.split_path(p); return (n and n ~= '') and n or p end
 local function natural_key(s)
     return (s:lower():gsub('%d+', function(d) return string.rep('0', 12 - math.min(#d, 12)) .. d end))
@@ -47,87 +42,26 @@ end
 local function has_uosc()
     return utils.file_info(utils.join_path(cfg, 'scripts/uosc')) ~= nil or utils.file_info(utils.join_path(cfg, 'scripts/uosc.lua')) ~= nil
 end
+local function get_playlist() return mp.get_property_native('playlist') or {} end
 
--- ---------- storage ----------
-local function full()
-    local out = {}
-    if playing_item then out[#out + 1] = playing_item end
-    if staged then out[#out + 1] = staged end
-    for _, p in ipairs(queue) do out[#out + 1] = p end
-    return out
-end
+-- the Queue no longer exists: tell the rest of the player (uosc patches, scripts) so nothing waits for it
+mp.set_property('user-data/ap/queue-playing', 'no')
+mp.set_property_native('user-data/ap/hidden', {})
 
-local auto_scan_hook
-local function save_done()
-    local json = utils.format_json(done)
-    if not json then return end
-    local f = io.open(DONE_FILE .. '.part', 'wb')
-    if not f then return end
-    f:write(json); f:close()
-    os.remove(DONE_FILE)
-    os.rename(DONE_FILE .. '.part', DONE_FILE)
-end
-
-local function load_done()
-    local f = io.open(DONE_FILE, 'rb')
-    if not f then return {} end
-    local s = f:read('*a'); f:close()
-    local t = s and s ~= '' and utils.parse_json(s) or nil
-    local out = {}
-    if type(t) == 'table' then
-        for _, v in ipairs(t) do
-            if type(v) == 'string' and (is_url(v) or utils.file_info(v)) then out[#out + 1] = v end
-        end
-    end
-    return out
-end
-
-local function save()
-    save_done()
-    if auto_scan_hook then auto_scan_hook() end
-    local json = utils.format_json(full())
-    if not json then return end
-    local f = io.open(PART, 'wb')
-    if not f then return end
-    f:write(json); f:close()
-    os.remove(FILE)
-    if not os.rename(PART, FILE) then msg.warn('could not write ' .. FILE) end
-end
-
-local function load_saved()
-    for _, p in ipairs({ FILE, PART }) do
-        local f = io.open(p, 'rb')
-        if f then
-            local s = f:read('*a'); f:close()
-            local t = s and s ~= '' and utils.parse_json(s) or nil
-            if type(t) == 'table' then
-                local out = {}
-                for _, v in ipairs(t) do
-                    if type(v) == 'string' and (is_url(v) or utils.file_info(v)) then out[#out + 1] = v end
-                end
-                return out
-            end
-        end
-    end
-    return {}
-end
-
--- ---------- menu ----------
-local refresh_queue_menu
-local update_footers, auto_scan
+-- ---------- watched (read-only here: ap-watched.lua publishes it) ----------
+local update_footers
 local watched = {}
 local function wnorm(p) return (p:lower():gsub('\\', '/')) end
 local function is_watched(p) return type(p) == 'string' and watched[wnorm(p)] == true end
 mp.observe_property('user-data/ap/watched', 'native', function(_, v)
     watched = type(v) == 'table' and v or {}
-    if refresh_queue_menu then refresh_queue_menu() end
     if update_footers then update_footers() end
 end)
 
 -- ---------- durations: read once with ffprobe (or the preview mpv.exe), cached in durations.json ----------
 local DUR_FILE = utils.join_path(cfg, 'durations.json')
 local durs = {}
--- one key per file: 'C:/a/b.mkv' (autoload) and 'C:\\a\\b.mkv' (Explorer) used to be two entries, so a read duration was not found for the other spelling
+-- one key per file: 'C:/a/b.mkv' (autoload) and 'C:\\a\\b.mkv' (Explorer) are the same file
 local function dk(p) return (p:gsub('\\', '/')) end
 do
     local f = io.open(DUR_FILE, 'rb')
@@ -137,14 +71,19 @@ do
         if type(t) == 'table' then for k, v in pairs(t) do durs[dk(k)] = v end end
     end
 end
-local save_timer
-local function save_durs()
-    if save_timer then save_timer:kill() end
-    save_timer = mp.add_timeout(2, function()
-        local f = io.open(DUR_FILE, 'wb')
-        if f then f:write(utils.format_json(durs) or '{}'); f:close() end
-    end)
+-- the cache is written at most every 10 s while durations are being read (it used to be rewritten after every file) and when the player closes
+local save_timer, durs_dirty = nil, false
+local function write_durs()
+    durs_dirty = false
+    local f = io.open(DUR_FILE, 'wb')
+    if f then f:write(utils.format_json(durs) or '{}'); f:close() end
 end
+local function save_durs()
+    durs_dirty = true
+    if save_timer then return end
+    save_timer = mp.add_timeout(10, function() save_timer = nil; if durs_dirty then write_durs() end end)
+end
+mp.register_event('shutdown', function() if durs_dirty then write_durs() end end)
 local function dur_of(p) local e = durs[dk(p)]; return e and e.d or nil end
 local function fmt_time(sec)
     sec = math.floor(sec + 0.5)
@@ -209,25 +148,45 @@ local function run_probe(path, cb)
     end)
 end
 
-local pending, inflight, failed, waiters = {}, {}, {}, {}
+-- Nothing competes with the reading when no video plays or the video is paused. While a video plays it is only read when you ask for it
+-- ("Read all durations", "sort by length") and then one file at a time.
+local function quiet()
+    return mp.get_property('path') == nil or mp.get_property_bool('idle-active', false) or mp.get_property_bool('pause', false)
+        or mp.get_property_bool('eof-reached', false)
+end
+
+local pending, queued, running, failed, waiters = {}, {}, {}, {}, {}
 local active, manual, manual_total, manual_done = 0, false, 0, 0
-local changed_timer
-local function durations_changed()
+local changed_timer, pump_timer
+
+local function footers_soon()
     if changed_timer then return end
-    changed_timer = mp.add_timeout(0.4, function()
+    changed_timer = mp.add_timeout(1.5, function()
         changed_timer = nil
         if update_footers then update_footers() end
-        if refresh_queue_menu then refresh_queue_menu() end
     end)
 end
 
-local function pump()
-    while active < 3 and #pending > 0 do
+local pump
+local function pump_later(delay)
+    if pump_timer then return end
+    pump_timer = mp.add_timeout(delay, function() pump_timer = nil; pump() end)
+end
+
+pump = function()
+    if #pending == 0 then return end
+    local limit
+    if manual then limit = quiet() and 3 or 1
+    elseif opts.probe_while_playing or quiet() then limit = 1
+    else return end   -- automatic reading waits until nothing plays (the pause / idle observers below wake it up)
+    while active < limit and #pending > 0 do
         local p = table.remove(pending, 1)
+        queued[p] = nil
+        running[p] = true
         active = active + 1
         run_probe(p, function(sec)
             active = active - 1
-            inflight[p] = nil
+            running[p] = nil
             if sec then
                 local fi = utils.file_info(p)
                 durs[dk(p)] = { d = sec, s = fi and fi.size or 0, m = fi and fi.mtime or 0 }
@@ -239,14 +198,16 @@ local function pump()
                 manual_done = manual_done + 1
                 mp.osd_message('Reading durations ' .. manual_done .. '/' .. manual_total, 1.5)
             end
-            durations_changed()
+            footers_soon()
             if active == 0 and #pending == 0 then
                 if manual then manual = false; mp.osd_message('Durations read', 2) end
                 local w = waiters
                 waiters = {}
                 for _, cb in ipairs(w) do cb() end
+                if update_footers then update_footers() end
+            else
+                pump_later(manual and 0.05 or 0.4)   -- a short pause between two files: the disk and the CPU are never kept busy
             end
-            pump()
         end)
     end
 end
@@ -255,10 +216,14 @@ end
 local function scan(paths, is_manual)
     local n = 0
     for _, p in ipairs(paths) do
-        if type(p) == 'string' and p ~= '' and not is_url(p) and not durs[dk(p)] and not failed[p] and not inflight[p] then
-            inflight[p] = true
-            pending[#pending + 1] = p
-            n = n + 1
+        if type(p) == 'string' and p ~= '' and not is_url(p) and not durs[dk(p)] and not failed[p] and not running[p] then
+            if not queued[p] then
+                queued[p] = true
+                pending[#pending + 1] = p
+                n = n + 1
+            elseif is_manual then
+                n = n + 1   -- already waiting for the automatic reading: "Read all durations" takes it over (and counts it)
+            end
         end
     end
     if n > 0 and is_manual then manual = true; manual_total = manual_total + n; if active == 0 then manual_done = 0; manual_total = n end end
@@ -274,7 +239,7 @@ end
 
 local function playlist_paths()
     local out = {}
-    for _, e in ipairs(mp.get_property_native('playlist') or {}) do out[#out + 1] = e.filename end
+    for _, e in ipairs(get_playlist()) do out[#out + 1] = e.filename end
     return out
 end
 
@@ -290,30 +255,25 @@ function update_footers()
     mp.set_property_native('user-data/ap/durations', map)
 end
 
-local scan_timer
-function auto_scan()
-    if scan_timer then scan_timer:kill() end
-    scan_timer = mp.add_timeout(1.2, function()
-        local all = playlist_paths()
-        for _, p in ipairs(full()) do all[#all + 1] = p end
-        scan(all, false)
-        update_footers()
-    end)
+-- automatic: the files of the playlist that have no duration yet. The list is rebuilt every time, so files that left the playlist are never read.
+local function auto_scan_now()
+    if manual then return end
+    for i = #pending, 1, -1 do queued[pending[i]] = nil; pending[i] = nil end
+    scan(playlist_paths(), false)
 end
-auto_scan_hook = auto_scan
-mp.observe_property('playlist', 'native', function() update_footers(); auto_scan() end)
 mp.register_script_message('ap-durations-scan', function()
-    local all = playlist_paths()
-    for _, p in ipairs(full()) do all[#all + 1] = p end
-    local n = scan(all, true)
+    local n = scan(playlist_paths(), true)
     if n == 0 and active == 0 then mp.osd_message('All durations are already known', 2) end
 end)
+-- wake the automatic reading up when playback stops / pauses
+mp.observe_property('pause', 'bool', function(_, v) if v then pump_later(1.0) end end)
+mp.observe_property('idle-active', 'bool', function(_, v) if v then pump_later(1.0) end end)
 mp.register_event('file-loaded', function()
     local p, d = mp.get_property('path'), mp.get_property_number('duration')
     if p and d and not is_url(p) and not durs[dk(p)] then
-        local fi = utils.file_info(p)
-        durs[dk(p)] = { d = d, s = fi and fi.size or 0, m = fi and fi.mtime or 0 }
-        save_durs(); durations_changed()
+        -- the length of the video that plays is known for free: no file is opened for it
+        durs[dk(p)] = { d = d, s = 0, m = 0 }
+        save_durs(); footers_soon()
     end
 end)
 
@@ -329,240 +289,47 @@ local function show_in_explorer(path)
 end
 mp.register_script_message('ap-show-in-explorer', show_in_explorer)
 
-local function menu_data()
-    local items = {}
-    local waiting_n = 0   -- numbers count the WAITING videos in play order (1 = plays first); the playing row has none
-    for i, p in ipairs(full()) do
-        local done = is_watched(p)   -- finished before: greyed out with a check mark
-        local playing_row = playing_item ~= nil and i == 1
-        local base_hint
-        if playing_row then base_hint = 'playing'
-        else
-            waiting_n = waiting_n + 1
-            local label = tostring(waiting_n)
-            if waiting_n == 1 and playing_item then label = label .. '  up next' end
-            base_hint = done and ('\226\156\147 ' .. label) or label
-        end
-        local d = dur_of(p)   -- length of the video at the end of the row
-        items[i] = {
-            title = is_url(p) and p or base_name(p),
-            hint = d and (fmt_time(d) .. '   ' .. base_hint) or base_hint,
-            muted = (done and not playing_row) or nil,
-            active = playing_row or nil,
-            value = i,
-        }
+-- ---------- the playlist: video / gif / audio only, every file once ----------
+-- autoload / "open" / "add to playlist" may put pictures, subtitles or a second copy of the same file into mpv's playlist. They are removed again
+-- a moment after the playlist changed. The playing entry is never touched, files on disk are never touched.
+local function clean_playlist_now()
+    if not (opts.dedupe or opts.video_only) then return end
+    local pl = get_playlist()
+    if #pl < 2 then return end
+    local function is_now(e) return e.current or e.playing end
+    local seen, drop, dups, bad = {}, {}, 0, 0
+    for _, e in ipairs(pl) do
+        if is_now(e) and type(e.filename) == 'string' then seen[path_key(e.filename)] = true end
     end
-    local base = #items
-    for k, p in ipairs(done) do
-        items[base + k] = {
-            title = is_url(p) and p or base_name(p),
-            hint = '\226\156\147 played',
-            muted = true,
-            value = base + k,
-        }
-    end
-    return {
-        type = MENU_TYPE,
-        title = 'Queue (Type to Search)',
-        tabs = { { title = 'Playlist', value = 'script-binding uosc/playlist' }, { title = 'Queue', active = true } },
-        tools = {
-            { icon = 'done_all', title = 'Remove watched', value = 'script-message ap-queue-clear-watched' },
-            { icon = 'add', title = 'Add / sort...', value = 'script-message ap-queue-add-menu' },
-            { icon = 'shuffle', title = 'Shuffle queue', value = 'script-message ap-queue-shuffle' },
-            { icon = 'delete_sweep', title = 'Remove all videos from the queue', value = 'script-message ap-queue-clear' },
-        },
-        footer = summarize(full()),
-        footnote = 'Double-click a row to play it (played videos stay at the bottom; double-click plays them again). Hold a row and drag to reorder. Drop files on the player (top strip = Play later) to add.',
-        callback = { SELF, 'ap-queue-event' },
-        on_move = 'callback',
-        -- narrow window: only the two buttons that matter (dragging / ctrl+up/down reorder), so the buttons never cover the title
-        item_actions = (mp.get_property_number('osd-width', 1280) or 1280) < 620 and {
-            { name = 'show', icon = 'folder_special', label = 'Show in Explorer' },
-            { name = 'remove', icon = 'delete', label = 'Remove from queue' },
-        } or {
-            { name = 'up', icon = 'arrow_upward', label = 'Move up' },
-            { name = 'down', icon = 'arrow_downward', label = 'Move down' },
-            { name = 'show', icon = 'folder_special', label = 'Show in Explorer' },
-            { name = 'remove', icon = 'delete', label = 'Remove from queue' },
-        },
-        bind_keys = { 'del' },
-        keep_open = true,   -- the first click only selects the row; the menu closes when the video is opened
-        selected_index = sel_index,
-        items = items,
-    }
-end
-
-local function refresh()
-    if has_uosc() then
-        mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(menu_data()))
-        -- uosc keeps the OLD selection when a menu is updated (selected_index in the data is ignored), so select the moved row explicitly
-        if sel_index then mp.commandv('script-message-to', 'uosc', 'select-menu-item', MENU_TYPE, tostring(sel_index)) end
-    end
-end
-refresh_queue_menu = refresh
-
-local open_menu
-local function add_menu()
-    if not has_uosc() then return end
-    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({
-        type = 'ap_queue_add',
-        title = 'Add to queue / sort',
-        items = {
-            { title = 'Files...', icon = 'video_file', value = { 'script-message', 'ap-queue-add-files', 'menu' } },
-            { title = 'Folder...', icon = 'folder_open', value = { 'script-message', 'ap-queue-add-folder', 'menu' } },
-            { title = 'From clipboard', icon = 'content_paste', value = { 'script-message', 'ap-queue-add-clipboard', 'menu' } },
-            { title = 'Sort by name (A-Z)', icon = 'sort_by_alpha', value = { 'script-message', 'ap-queue-sort', 'name', 'menu' } },
-            { title = 'Sort by name (Z-A)', icon = 'sort_by_alpha', value = { 'script-message', 'ap-queue-sort', 'name_desc', 'menu' } },
-            { title = 'Newest first', icon = 'schedule', value = { 'script-message', 'ap-queue-sort', 'date', 'menu' } },
-            { title = 'Oldest first', icon = 'history', value = { 'script-message', 'ap-queue-sort', 'date_old', 'menu' } },
-            { title = 'Largest first', icon = 'storage', value = { 'script-message', 'ap-queue-sort', 'size', 'menu' } },
-            { title = 'Smallest first', icon = 'storage', value = { 'script-message', 'ap-queue-sort', 'size_small', 'menu' } },
-            { title = 'Longest first', icon = 'timer', value = { 'script-message', 'ap-queue-sort', 'length', 'menu' } },
-            { title = 'Shortest first', icon = 'timer', value = { 'script-message', 'ap-queue-sort', 'length_short', 'menu' } },
-            { title = 'Read all durations', icon = 'hourglass_top', value = { 'script-message', 'ap-durations-scan' } },
-            { title = 'Reverse order', icon = 'swap_vert', value = { 'script-message', 'ap-queue-sort', 'reverse', 'menu' } },
-            { title = 'Remove watched', icon = 'done_all', value = { 'script-message', 'ap-queue-clear-watched', 'menu' } },
-            { title = 'Back to the queue', icon = 'arrow_back', value = { 'script-message', 'ap-queue-open' } },
-        },
-    }))
-end
-
-function open_menu()
-    sel_index = nil
-    if has_uosc() then
-        mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(menu_data()))
-    else
-        mp.osd_message('Queue: ' .. #full() .. ' item(s). The Queue menu needs the uosc interface (mpv-anime-build).', 4)
-    end
-end
-
--- ---------- staging ----------
--- The first queue item is placed right after the playing video so mpv itself plays it next (end of file, Next button) and the
--- episode playlist is never destroyed. It is an extra copy that the Playlist tab hides; once it has played the copy is removed again.
--- If the same file is already in the playlist, that entry is moved instead of copying it (no duplicate plays) and moved back if unstaged.
-local function playlist_count() return mp.get_property_number('playlist-count', 0) end
-local function playlist_pos() return mp.get_property_number('playlist-pos', -1) end
-local function get_playlist() return mp.get_property_native('playlist') or {} end
-
-local function find_by_id(id)
-    if not id then return nil end
-    for i, e in ipairs(get_playlist()) do
-        if e.id == id then return i - 1, e end
-    end
-    return nil
-end
-
-local function publish_hidden()
-    local m = {}
-    if staged and staged_temp and staged_id then m[tostring(staged_id)] = true end
-    mp.set_property_native('user-data/ap/hidden', m)
-end
-
--- mpv's playlist-move puts the entry *before* the target, so moving forward needs +1
-local function move_to_final(idx, final)
-    if idx == final then return end
-    mp.commandv('playlist-move', tostring(idx), tostring(idx < final and final + 1 or final))
-end
-
--- take the staged item out of the playlist (or back to where it was) and put it at the head of the queue again
-local function unstage()
-    if not staged then return end
-    local idx = find_by_id(staged_id)
-    if idx and idx ~= playlist_pos() then
-        if staged_temp then
-            mp.commandv('playlist-remove', tostring(idx))
-        else
-            local pidx = find_by_id(staged_prev_id)
-            move_to_final(idx, pidx and (pidx < idx and pidx + 1 or pidx) or 0)
+    for i, e in ipairs(pl) do
+        if not is_now(e) and type(e.filename) == 'string' then
+            local k = path_key(e.filename)
+            if not is_video_path(e.filename) then drop[#drop + 1] = i - 1; bad = bad + 1
+            elseif opts.dedupe and seen[k] then drop[#drop + 1] = i - 1; dups = dups + 1
+            else seen[k] = true end
         end
     end
-    table.insert(queue, 1, staged)
-    staged, staged_id, staged_temp, staged_prev_id = nil, nil, false, nil
-    publish_hidden()
+    for j = #drop, 1, -1 do mp.commandv('playlist-remove', tostring(drop[j])) end   -- highest index first: the other indexes stay valid
+    if #drop > 0 then msg.info(string.format('playlist cleaned: %d duplicate, %d not a video', dups, bad)) end
 end
+mp.register_script_message('ap-playlist-clean', clean_playlist_now)
 
--- (build 26) sorting / shuffling the Playlist tab while a queue copy is playing would leave that copy somewhere in the new order, and
--- "next" would then jump to whatever follows it there (back to earlier episodes). Put the playing copy right behind the entry it came from again.
-local function reanchor()
-    if not consumed_temp_id or not consumed_origin then return end
-    local ci, oi = find_by_id(consumed_temp_id), find_by_id(consumed_origin)
-    if not ci or not oi or ci == oi + 1 then return end
-    move_to_final(ci, ci < oi and oi or oi + 1)
-end
-
--- put `path` into the playlist right after the playing entry as an EXTRA COPY; sets the staged_* state; returns the 0-based index
--- (build 26) The queue video is ALWAYS an extra copy that is removed again once it has played. Earlier builds MOVED the playlist's
--- own entry when the same file was already in the playlist and never moved it back: the episode order was scrambled and, when the
--- queue was done, "next" went on with entries that had been pushed behind it = jumped back to earlier episodes (the reverse bug).
--- The playlist itself is never reordered by the queue any more.
-local function stage_item(path)
-    local cur = playlist_pos()
-    local cur_entry = get_playlist()[cur + 1]
-    if cur_entry and consumed_temp_id and cur_entry.id == consumed_temp_id then staged_origin = consumed_origin
-    else staged_origin = cur_entry and cur_entry.id or nil end
-    staged = path
-    staged_temp = true
-    staged_prev_id = nil
-    mp.commandv('loadfile', path, 'append')
-    local l2 = get_playlist()
-    local count = #l2
-    staged_id = l2[count] and l2[count].id
-    publish_hidden()   -- hide it before it is moved, so the Playlist tab never shows it
-    local final = cur + 1
-    move_to_final(count - 1, final)
-    return final
-end
-
-local function stage()
-    if staged or #queue == 0 then return end
-    if playlist_count() == 0 then
-        -- idle player: start the queue right away
-        local head = table.remove(queue, 1)
-        pending_idle_item = head
-        mp.commandv('loadfile', head, 'replace')
-        return
-    end
-    -- queue_mode=tabs: a Playlist video goes on with the playlist; the queue only runs after a video that was started from the Queue tab
-    if opts.queue_mode ~= 'after' and not playing_item then return end
-    stage_item(table.remove(queue, 1))
-    publish_hidden()
-end
-
--- keep the staged item right behind the playing one when the playlist is edited / sorted / shuffled
-local ensure_timer
-local function ensure_staged()
-    if ensure_timer then ensure_timer:kill() end
-    ensure_timer = mp.add_timeout(0.15, function()
-        if not staged then return end
-        local idx = find_by_id(staged_id)
-        local cur = playlist_pos()
-        if not idx then
-            table.insert(queue, 1, staged)
-            staged, staged_id, staged_temp, staged_prev_id = nil, nil, false, nil
-            publish_hidden()
-            stage()
-        elseif idx ~= cur + 1 and idx ~= cur then
-            unstage()
-            stage()
-        end
+-- ONE debounced reaction to a changed playlist (the playlist itself is only read when the timer fires: reading a long playlist on every
+-- change used to cost time while a folder was being loaded)
+local changed
+local function playlist_changed()
+    if changed then changed:kill() end
+    changed = mp.add_timeout(0.5, function()
+        changed = nil
+        clean_playlist_now()
+        update_footers()
+        auto_scan_now()   -- while a video plays the missing durations only wait in the list: they are read when playback pauses or stops
     end)
 end
-mp.observe_property('playlist', 'native', ensure_staged)
-mp.observe_property('playlist-pos', 'number', ensure_staged)
+mp.observe_property('playlist-count', 'number', playlist_changed)
+mp.observe_property('path', 'string', playlist_changed)
 
-local function edit(fn)
-    unstage()
-    fn(queue)
-    stage()
-    save()
-    refresh()
-end
-
--- ---------- actions ----------
-local VIDEO_EXT = {}
-for e in ('mkv mp4 avi webm mov m4v ts m2ts flv wmv mpg mpeg ogv mp3 flac m4a ogg opus wav'):gmatch('%S+') do VIDEO_EXT[e] = true end
-
--- a dropped / picked folder becomes its videos, in natural order
+-- ---------- Play later / Add videos: put videos at the END of the playlist ----------
 local function expand(list)
     local out = {}
     for _, p in ipairs(list) do
@@ -571,10 +338,9 @@ local function expand(list)
             local files = utils.readdir(p, 'files') or {}
             local found = {}
             for _, f in ipairs(files) do
-                local ext = f:match('%.([^.]+)$')
-                if ext and VIDEO_EXT[ext:lower()] then found[#found + 1] = utils.join_path(p, f) end
+                if is_video_path(f) then found[#found + 1] = utils.join_path(p, f) end
             end
-            table.sort(found, function(a, b) return natural_key(base_name(a)) < natural_key(base_name(b)) end)
+            table.sort(found, function(a, b) return natural_key(a) < natural_key(b) end)
             for _, f in ipairs(found) do out[#out + 1] = f end
         else
             out[#out + 1] = p
@@ -583,108 +349,46 @@ local function expand(list)
     return out
 end
 
-local function add_paths(list)
-    local n = 0
+local function add_to_playlist(list)
     list = expand(list)
-    edit(function(q)
-        for _, p in ipairs(list) do
-            if type(p) == 'string' and p ~= '' then q[#q + 1] = p; n = n + 1 end
-        end
-    end)
-    if n > 0 then mp.osd_message('Added ' .. n .. ' to the queue', 2) end
-end
-
-local function sort_queue_now(mode)
-    edit(function(q)
-        local items = {}
-        for i, p in ipairs(q) do
-            local it = { path = p, idx = i, name = natural_key(base_name(p)), size = 0, time = 0 }
-            local len = dur_of(p)
-            it.len = len or -1
-            it.len_short = len or math.huge
-            if not is_url(p) then
-                local fi = utils.file_info(p)
-                if fi then it.size = fi.size or 0; it.time = fi.mtime or 0 end
+    local pl = get_playlist()
+    local count_before = #pl
+    local seen = {}
+    for _, e in ipairs(pl) do if type(e.filename) == 'string' then seen[path_key(e.filename)] = true end end
+    local idle = mp.get_property('path') == nil or mp.get_property_bool('idle-active', false)
+    local added, dups, skipped = 0, 0, 0
+    for _, p in ipairs(list) do
+        if type(p) == 'string' then
+            p = (p:gsub('^%s+', ''):gsub('%s+$', ''))
+            if p ~= '' then
+                local k = path_key(p)
+                if not is_video_path(p) then skipped = skipped + 1
+                elseif opts.dedupe and seen[k] then dups = dups + 1
+                else
+                    seen[k] = true
+                    -- nothing plays: the first one starts, the others follow it; something plays: it is never interrupted
+                    mp.commandv('loadfile', p, (idle and added == 0) and 'append-play' or 'append')
+                    added = added + 1
+                end
             end
-            items[i] = it
         end
-        local cmp
-        if mode == 'name' then cmp = function(a, b) return a.name < b.name end
-        elseif mode == 'name_desc' then cmp = function(a, b) return a.name > b.name end
-        elseif mode == 'date' then cmp = function(a, b) return a.time > b.time end
-        elseif mode == 'date_old' then cmp = function(a, b) return a.time < b.time end
-        elseif mode == 'size' then cmp = function(a, b) return a.size > b.size end
-        elseif mode == 'size_small' then cmp = function(a, b) return a.size < b.size end
-        elseif mode == 'length' then cmp = function(a, b) return a.len > b.len end
-        elseif mode == 'length_short' then cmp = function(a, b) return a.len_short < b.len_short end
-        elseif mode == 'reverse' then cmp = function(a, b) return a.idx > b.idx end
-        else return end
-        table.sort(items, function(a, b)
-            if cmp(a, b) then return true end
-            if cmp(b, a) then return false end
-            return a.idx < b.idx
-        end)
-        for i, it in ipairs(items) do q[i] = it.path end
-    end)
-end
-
-local function sort_queue(mode)
-    if mode == 'length' or mode == 'length_short' then
-        mp.osd_message('Reading durations...', 2)
-        with_durations(full(), function() sort_queue_now(mode) end)
-    else
-        sort_queue_now(mode)
+    end
+    -- the last video stopped on its final frame (keep-open): the first new one starts now
+    if added > 0 and not idle and mp.get_property_bool('eof-reached', false) then
+        mp.commandv('playlist-play-index', tostring(count_before))
+    end
+    local note = {}
+    if dups > 0 then note[#note + 1] = dups .. ' already in the playlist' end
+    if skipped > 0 then note[#note + 1] = skipped .. ' not a video' end
+    if added > 0 then
+        mp.osd_message('Added ' .. added .. ' to the playlist' .. (#note > 0 and (' (' .. table.concat(note, ', ') .. ' skipped)') or ''), 2)
+    elseif #note > 0 then
+        mp.osd_message('Nothing added: ' .. table.concat(note, ', '), 2)
     end
 end
 
-local function shuffle_queue()
-    edit(function(q)
-        for i = #q, 2, -1 do
-            local j = math.random(i)
-            q[i], q[j] = q[j], q[i]
-        end
-    end)
-    mp.osd_message('Queue shuffled', 2)
-end
-
-local function clear_queue()
-    done = {}
-    edit(function(q) for i = #q, 1, -1 do q[i] = nil end end)
-    mp.osd_message('Queue cleared', 2)
-end
-
-local function remove_at(i)
-    edit(function(q) table.remove(q, i) end)
-end
-
-local function move_item(from, to)
-    edit(function(q)
-        if from < 1 or from > #q then return end
-        to = math.max(1, math.min(to, #q))
-        local p = table.remove(q, from)
-        table.insert(q, to, p)
-    end)
-end
-
-local function play_now(i)
-    unstage()
-    local path = table.remove(queue, i)
-    if path then
-        if playlist_count() == 0 then
-            pending_idle_item = path
-            mp.commandv('loadfile', path, 'replace')
-        else
-            local idx = stage_item(path)
-            publish_hidden()
-            mp.commandv('playlist-play-index', tostring(idx))   -- file-loaded sees the staged item playing and consumes it
-        end
-    end
-    save()
-    refresh()
-end
-
--- ---------- file pickers (Windows PowerShell, no extra files needed) ----------
-local EXT = "'.mkv','.mp4','.avi','.webm','.mov','.m4v','.ts','.m2ts','.flv','.wmv','.mpg','.mpeg','.ogv','.mp3','.flac','.m4a','.ogg','.opus','.wav'"
+-- file pickers (Windows PowerShell, no extra files needed)
+local EXT = "'.mkv','.mp4','.avi','.webm','.mov','.m4v','.ts','.m2ts','.mts','.flv','.f4v','.wmv','.asf','.mpg','.mpeg','.mpe','.vob','.ogv','.3gp','.3g2','.divx','.rm','.rmvb','.mxf','.gif','.mp3','.flac','.m4a','.mka','.mp2','.ogg','.opus','.aac','.ac3','.dts','.wav','.wma','.ape','.alac','.wv'"
 local HEAD = "Add-Type -AssemblyName System.Windows.Forms;[Console]::OutputEncoding=[Text.Encoding]::UTF8;" ..
     "$o=New-Object Windows.Forms.Form;$o.TopMost=$true;$o.ShowInTaskbar=$false;$o.Opacity=0;$o.StartPosition='CenterScreen';$o.Show();"
 
@@ -704,148 +408,80 @@ local function run_ps(script, cb)
     end)
 end
 
-local function add_files(reopen)
-    run_ps("$d=New-Object Windows.Forms.OpenFileDialog;$d.Multiselect=$true;$d.Title='Add to queue';" ..
-        "$d.Filter='Video / audio|*.mkv;*.mp4;*.avi;*.webm;*.mov;*.m4v;*.ts;*.m2ts;*.flv;*.wmv;*.mpg;*.mpeg;*.mp3;*.flac;*.m4a;*.ogg;*.opus;*.wav|All files|*.*';" ..
-        "if($d.ShowDialog($o) -eq 'OK'){$d.FileNames}", function(list)
-            table.sort(list, function(a, b) return natural_key(base_name(a)) < natural_key(base_name(b)) end)
-            add_paths(list)
-            if reopen then open_menu() end
-        end)
+local function add_files()
+    run_ps("$d=New-Object Windows.Forms.OpenFileDialog;$d.Multiselect=$true;$d.Title='Add to the playlist';" ..
+        "$d.Filter='Video / gif / audio|*.mkv;*.mp4;*.avi;*.webm;*.mov;*.m4v;*.ts;*.m2ts;*.mts;*.flv;*.f4v;*.wmv;*.asf;*.mpg;*.mpeg;*.mpe;*.vob;*.ogv;*.3gp;*.3g2;*.divx;*.rm;*.rmvb;*.mxf;*.gif;*.mp3;*.flac;*.m4a;*.mka;*.mp2;*.ogg;*.opus;*.aac;*.ac3;*.dts;*.wav;*.wma;*.ape;*.alac;*.wv|All files|*.*';" ..
+        "if($d.ShowDialog($o) -eq 'OK'){$d.FileNames|ForEach-Object{$_}};$o.Close()",
+        function(list) if #list > 0 then add_to_playlist(list) end end)
 end
-
-local function add_folder(reopen)
-    run_ps("$d=New-Object Windows.Forms.FolderBrowserDialog;$d.Description='Add every video in this folder to the queue';" ..
-        "if($d.ShowDialog($o) -eq 'OK'){Get-ChildItem -LiteralPath $d.SelectedPath -File | Where-Object { @(" .. EXT ..
-        ") -contains $_.Extension.ToLower() } | ForEach-Object { $_.FullName }}", function(list)
-            table.sort(list, function(a, b) return natural_key(base_name(a)) < natural_key(base_name(b)) end)
-            add_paths(list)
-            if reopen then open_menu() end
-        end)
+local function add_folder()
+    run_ps("$d=New-Object Windows.Forms.FolderBrowserDialog;$d.Description='Add every video in this folder to the playlist';" ..
+        "if($d.ShowDialog($o) -eq 'OK'){$d.SelectedPath};$o.Close()",
+        function(list) if #list > 0 then add_to_playlist(list) end end)
 end
-
-local function add_clipboard(reopen)
-    run_ps("$c=Get-Clipboard -Format FileDropList;if($c){$c|ForEach-Object{$_.FullName}}else{Get-Clipboard}", function(list)
-        if #list == 0 then mp.osd_message('Clipboard has no file or URL', 2) if reopen then open_menu() end return end
-        add_paths(list)
-        if reopen then open_menu() end
-    end)
+local function add_clipboard()
+    run_ps("$c=Get-Clipboard -Format FileDropList;if($c){$c|ForEach-Object{$_.FullName}}else{Get-Clipboard};$o.Close()",
+        function(list) if #list > 0 then add_to_playlist(list) else mp.osd_message('Nothing to add on the clipboard', 2) end end)
 end
+mp.register_script_message('ap-playlist-add-files', add_files)
+mp.register_script_message('ap-playlist-add-folder', add_folder)
+mp.register_script_message('ap-playlist-add-clipboard', add_clipboard)
+mp.register_script_message('ap-playlist-add', function(...) add_to_playlist({ ... }) end)
 
--- ---------- events ----------
-local function on_event(json)
-    local e = utils.parse_json(json or '')
-    if type(e) ~= 'table' then return end
-    local off = playing_item and 1 or 0
-    if e.type == 'activate' then
-        local i = tonumber(e.value)
-        if not i then return end
-        local nfull = #full()
-        if i > nfull then
-            -- a PLAYED row (bottom of the list): remove it, show it, or double-click = play it again
-            local k = i - nfull
-            local p = done[k]
-            if not p then return end
-            if e.action == 'remove' then table.remove(done, k); save(); refresh()
-            elseif e.action == 'show' then show_in_explorer(p)
-            elseif e.action == 'up' or e.action == 'down' then return
-            else
-                local now = mp.get_time()
-                if click_row ~= i or now - click_time > 0.6 then click_row, click_time = i, now; sel_index = i; return end
-                click_row = nil
-                if now - last_activate < 0.8 then return end
-                last_activate = now
-                sel_index = nil
-                mp.commandv('script-message-to', 'uosc', 'close-menu', MENU_TYPE)
-                table.remove(done, k)
-                unstage()
-                table.insert(queue, 1, p)
-                play_now(1)
-            end
-            return
+local function add_menu()
+    if not has_uosc() then return end
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({
+        type = 'ap_playlist_add',
+        title = 'Add videos to the playlist',
+        items = {
+            { title = 'Add files...', icon = 'video_file', value = { 'script-message', 'ap-playlist-add-files' } },
+            { title = 'Add folder...', icon = 'folder_open', value = { 'script-message', 'ap-playlist-add-folder' } },
+            { title = 'Add from the clipboard', icon = 'content_paste', value = { 'script-message', 'ap-playlist-add-clipboard' } },
+            { title = 'Back to the playlist', icon = 'arrow_back', value = { 'script-message', 'ap-playlist-direct' } },
+        },
+    }))
+end
+mp.register_script_message('ap-playlist-add-menu', add_menu)
+
+-- Play later (drag & drop / Explorer): the player writes the paths to an inbox file and sends this message
+local function read_inbox()
+    local list = {}
+    for _, name in ipairs({ 'playlist-inbox.txt', 'queue-inbox.txt' }) do   -- the second name is the one older player builds write
+        local path = utils.join_path(cfg, name)
+        local f = io.open(path, 'rb')
+        if f then
+            local s = f:read('*a') or ''
+            f:close()
+            os.remove(path)
+            for line in s:gmatch('[^\r\n]+') do list[#list + 1] = line end
         end
-        if playing_item and i == 1 then
-            -- the video that is playing now: nothing to start, it can be shown in Explorer or taken out of the list
-            if e.action == 'show' then show_in_explorer(playing_item)
-            elseif e.action == 'remove' then playing_item = nil; save(); refresh() end
-            return
-        end
-        local qi = i - off
-        if e.action == 'up' or e.action == 'down' then last_move_t = mp.get_time() end
-        if e.action == 'up' then sel_index = math.max(off + 1, i - 1); move_item(qi, qi - 1)
-        elseif e.action == 'down' then sel_index = math.min(#full(), i + 1); move_item(qi, qi + 1)
-        elseif e.action == 'show' then show_in_explorer(full()[i])
-        elseif e.action == 'remove' then remove_at(qi)
-        else
-            -- a double click used to start a second row (the list had already moved up): one start per 0.8 s
-            local now = mp.get_time()
-            if now - last_move_t < 0.8 then sel_index = i; click_row = nil; return end   -- right after a drag / move: only select
-            if click_row ~= i or now - click_time > 0.6 then
-                click_row, click_time = i, now      -- first click: select only
-                sel_index = i
-                return
-            end
-            click_row = nil
-            if now - last_activate < 0.8 then return end
-            last_activate = now
-            sel_index = nil
-            mp.commandv('script-message-to', 'uosc', 'close-menu', MENU_TYPE)
-            play_now(qi)
-        end
-    elseif e.type == 'move' then
-        local from, to = tonumber(e.from_index), tonumber(e.to_index)
-        if from and to and from > off and to > off and from <= #full() and to <= #full() then sel_index = to; last_move_t = mp.get_time(); move_item(from - off, to - off) end
-    elseif e.type == 'key' and e.key == 'del' and e.selected_item then
-        local i = tonumber(e.selected_item.value)
-        if i and i > #full() then table.remove(done, i - #full()); save(); refresh()
-        elseif i and i > off then remove_at(i - off) end
     end
+    if #list > 0 then add_to_playlist(list) end
 end
+mp.register_script_message('ap-playlist-inbox', read_inbox)
+mp.register_script_message('ap-queue-inbox', read_inbox)
 
-local was_narrow
-mp.observe_property('osd-width', 'number', function(_, w)
-    if not w or w <= 0 then return end
-    local narrow = w < 620
-    if was_narrow == nil then was_narrow = narrow return end
-    if narrow ~= was_narrow then was_narrow = narrow; refresh() end   -- the row buttons follow the window size while the menu is open
-end)
-mp.register_script_message('ap-queue-event', on_event)
-mp.register_script_message('ap-queue-open', open_menu)
-mp.register_script_message('ap-queue-menu', open_menu)           -- old name (control bar button / F2)
-mp.register_script_message('ap-queue-sort', function(mode, reopen) sort_queue(mode); if reopen then open_menu() end end)
-mp.register_script_message('ap-queue-add-menu', add_menu)
-mp.register_script_message('ap-queue-shuffle', shuffle_queue)
-mp.register_script_message('ap-queue-clear', clear_queue)
-mp.register_script_message('ap-queue-add-files', function(r) add_files(r == 'menu') end)
-mp.register_script_message('ap-queue-add-folder', function(r) add_folder(r == 'menu') end)
-mp.register_script_message('ap-queue-add-clipboard', function(r) add_clipboard(r == 'menu') end)
-mp.register_script_message('ap-queue-add-many', function(...) add_paths({ ... }) end)   -- drag & drop "Play later"
-mp.register_script_message('ap-queue-add', function(path) if path and path ~= '' then add_paths({ path }) end end)
-mp.register_script_message('ap-queue-add-current', function()
-    local p = mp.get_property('path')
-    if p and p ~= '' then add_paths({ p }) end
-end)
-mp.register_script_message('ap-queue-attach', function() end)    -- the resume script still calls this; the queue no longer needs it
+-- the Queue was removed: anything that still sends one of its messages (an old button, an old key) gets one clear line instead of silence
+local function queue_gone() mp.osd_message('The Queue was removed. Play later / Add videos put videos into the Playlist.', 3) end
+for _, name in ipairs({ 'ap-queue-open', 'ap-queue-menu', 'ap-queue-add', 'ap-queue-add-menu', 'ap-queue-add-files', 'ap-queue-add-folder',
+                        'ap-queue-add-clipboard', 'ap-queue-add-many', 'ap-queue-add-current', 'ap-queue-sort', 'ap-queue-shuffle', 'ap-queue-clear',
+                        'ap-queue-clear-watched', 'ap-queue-event' }) do
+    mp.register_script_message(name, queue_gone)
+end
+mp.register_script_message('ap-queue-attach', function() end)    -- the resume script of older builds still sends this
 mp.register_script_message('ap-queue-remove-played', function() end)
 mp.register_script_message('ap-queue-restore', function() end)
 
--- Play later (drag & drop): the player writes the dropped paths to queue-inbox.txt and sends this message
-mp.register_script_message('ap-queue-inbox', function()
-    local path = utils.join_path(cfg, 'queue-inbox.txt')
-    local f = io.open(path, 'rb')
-    if not f then return end
-    local s = f:read('*a') or ''
-    f:close()
-    os.remove(path)
-    local list = {}
-    for line in s:gmatch('[^\r\n]+') do list[#list + 1] = line end
-    add_paths(list)
+-- open the Playlist menu on purpose (the Playlist tools / sort menu go back to it)
+mp.register_script_message('ap-playlist-direct', function()
+    mp.set_property('user-data/ap/playlist-direct', 'yes')
+    mp.commandv('script-binding', 'uosc/playlist')
+    mp.add_timeout(0.4, function() mp.set_property('user-data/ap/playlist-direct', 'no') end)
 end)
 
--- ---------- sorting the PLAYLIST (the Playlist tab) ----------
+-- ---------- sorting the PLAYLIST ----------
 local function sort_playlist_now(mode)
-    unstage()
-    local pl = mp.get_property_native('playlist') or {}
+    local pl = get_playlist()
     local items = {}
     for i, e in ipairs(pl) do
         local it = { id = e.id, idx = i, name = natural_key(base_name(e.filename)), size = 0, time = 0 }
@@ -888,9 +524,6 @@ local function sort_playlist_now(mode)
             end
         end
     end
-    reanchor()
-    stage()
-    save()
 end
 
 local function sort_playlist(mode)
@@ -921,20 +554,19 @@ local function playlist_sort_menu()
             item('Shortest first', 'timer', 'length_short'),
             { title = 'Read all durations', icon = 'hourglass_top', value = { 'script-message', 'ap-durations-scan' } },
             item('Reverse order', 'swap_vert', 'reverse'),
-            { title = 'Back to the playlist', icon = 'arrow_back', value = { 'script-binding', 'uosc/playlist' } },
+            { title = 'Back to the playlist', icon = 'arrow_back', value = { 'script-message', 'ap-playlist-direct' } },
         },
     }))
 end
 mp.register_script_message('ap-playlist-sort-menu', playlist_sort_menu)
 mp.register_script_message('ap-playlist-sort', function(mode)
     sort_playlist(mode)
-    mp.add_timeout(0.15, function() mp.commandv('script-binding', 'uosc/playlist') end)
+    mp.add_timeout(0.15, function() mp.commandv('script-message', 'ap-playlist-direct') end)
 end)
 
--- ---------- remove watched entries from the lists (the files on disk are not touched) ----------
+-- ---------- remove watched / remove all / shuffle (the files on disk are not touched) ----------
 local function clear_watched_playlist()
-    unstage()
-    local pl = mp.get_property_native('playlist') or {}
+    local pl = get_playlist()
     local n = 0
     for i = #pl, 1, -1 do
         local e = pl[i]
@@ -943,88 +575,19 @@ local function clear_watched_playlist()
             n = n + 1
         end
     end
-    stage()
-    save()
-    refresh()
     mp.osd_message(n > 0 and ('Removed ' .. n .. ' watched from the playlist') or 'No watched files in the playlist', 2)
 end
+mp.register_script_message('ap-playlist-clear-watched', clear_watched_playlist)
 
-local function clear_watched_queue(reopen)
-    local n = #done
-    done = {}
-    edit(function(q)
-        for i = #q, 1, -1 do
-            if is_watched(q[i]) then table.remove(q, i); n = n + 1 end
-        end
-    end)
-    mp.osd_message(n > 0 and ('Removed ' .. n .. ' watched from the queue') or 'No watched files in the queue', 2)
-    if reopen then open_menu() end
-end
--- remove every video of the Playlist tab except the playing one (queue items stay in the Queue tab)
-local function clear_playlist()
-    unstage()
+-- remove every video of the playlist except the playing one
+mp.register_script_message('ap-playlist-clear', function()
     mp.commandv('playlist-clear')
     mp.set_property_native('user-data/ap/no-autoload', true)   -- autoload.lua would put the whole folder back when only one entry is left
-    stage()
-    save()
-    refresh()
     mp.osd_message('Playlist cleared (the playing video stays)', 2)
-end
-mp.register_script_message('ap-playlist-clear', clear_playlist)
-mp.register_event('end-file', function()
-    mp.set_property_native('user-data/ap/no-autoload', false)
-    if playing_item then
-        -- the queue video has ended (or you moved on): it is NOT deleted any more, it moves to the played rows at the bottom of the Queue tab
-        done[#done + 1] = playing_item
-        if #done > 200 then table.remove(done, 1) end
-        playing_item = nil; save(); refresh()
-    end
 end)
-mp.register_script_message('ap-playlist-clear-watched', clear_watched_playlist)
-mp.register_script_message('ap-queue-clear-watched', function(r) clear_watched_queue(r == 'menu') end)
+mp.register_event('end-file', function() mp.set_property_native('user-data/ap/no-autoload', false) end)
 
--- a file started
-mp.register_event('file-loaded', function()
-    local cur_id
-    for _, e in ipairs(get_playlist()) do if e.current then cur_id = e.id end end
-    -- the extra copy of a queue video that played before this file is no longer needed
-    if consumed_temp_id and consumed_temp_id ~= cur_id then
-        local idx = find_by_id(consumed_temp_id)
-        if idx and idx ~= playlist_pos() then mp.commandv('playlist-remove', tostring(idx)) end
-        consumed_temp_id, consumed_origin = nil, nil
-    end
-    if staged and staged_id == cur_id then
-        -- the staged queue item is playing now: it stays in the Queue tab (as the playing row) until it has ended
-        if staged_temp then consumed_temp_id = staged_id; consumed_origin = staged_origin end
-        playing_item = staged
-        staged, staged_id, staged_temp, staged_prev_id = nil, nil, false, nil
-        publish_hidden()
-    elseif staged then
-        unstage()   -- the user went somewhere else: stage again behind the new current entry
-    end
-    if pending_idle_item then
-        if mp.get_property('path') == pending_idle_item then playing_item = pending_idle_item end
-        pending_idle_item = nil
-    end
-    stage()
-    save()
-    refresh()
-end)
-
--- shuffle the Playlist tab without scattering the staged queue item
 mp.register_script_message('ap-playlist-shuffle', function()
-    unstage()
     mp.commandv('playlist-shuffle')
-    reanchor()
-    stage()
-    save()
     mp.osd_message('Playlist shuffled', 2)
-end)
-
-queue = load_saved()
-done = load_done()
-mp.add_timeout(2, function()
-    if playlist_count() == 0 and #queue > 0 then
-        mp.osd_message('Queue: ' .. #queue .. ' video(s) waiting (open the Queue tab)', 4)
-    end
 end)

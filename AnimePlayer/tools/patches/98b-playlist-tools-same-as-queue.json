@@ -1,0 +1,7 @@
+{
+ "id": "playlist-tools-same-as-queue",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[AP30: playlist tools]",
+ "find": "\ttabs = {{title = t('Playlist'), active = true}, {title = t('Queue'), value = 'script-message ap-queue-open'}},  -- [AnimePlayer: playlist tabs]\n",
+ "replace": "\ttabs = {{title = t('Playlist'), active = true}, {title = t('Queue'), value = 'script-message ap-queue-open'}},  -- [AnimePlayer: playlist tabs]\n\ttools = {   -- [AP30: playlist tools] the same four buttons as the Queue tab (a later duplicate of this key from an earlier patch is harmless)\n\t\t{icon = 'done_all', title = t('Remove watched'), value = 'script-message ap-playlist-clear-watched'},\n\t\t{icon = 'sort', title = t('Sort playlist'), value = 'script-message ap-playlist-sort-menu'},\n\t\t{icon = 'shuffle', title = t('Shuffle playlist'), value = 'script-message ap-playlist-shuffle'},\n\t\t{icon = 'delete_sweep', title = t('Remove all videos (keeps the playing one)'), value = 'script-message ap-playlist-clear'},\n\t},\n"
+}

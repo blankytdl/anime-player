@@ -1,0 +1,7 @@
+{
+ "id": "99b-remove-add-to-queue",
+ "file": "scripts/uosc/main.lua",
+ "marker": "[build36: the Add to queue button was removed]",
+ "find": "\t\t\t{name = 'add_queue', icon = 'playlist_add', label = t('Add to queue')},  -- [AP7: add to queue]\n",
+ "replace": "\t\t\t-- [build36: the Add to queue button was removed]\n"
+}

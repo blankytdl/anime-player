@@ -67,8 +67,28 @@ end
 -- and unexpected process termination after the toggle has been changed.
 save_state(mp.get_property_native('ontop'))
 
+-- (build 29) The window may not be ready when this script runs at start-up, so the pin is applied again shortly after the start and once the
+-- first video is loaded - unless you have already toggled it yourself. Setting the same value again does not tell the window anything, so a pinned
+-- state is switched off and on in one go to make sure the window really becomes topmost.
+local user_toggled = false
+local expected = restored
+local ignore_until = 0      -- property events caused by reapply() itself are not user toggles
+local function reapply()
+    if user_toggled or not restored then return end
+    ignore_until = mp.get_time() + 0.6
+    pcall(mp.set_property_native, 'ontop', false)
+    pcall(mp.set_property_native, 'ontop', true)
+    expected = true
+end
+mp.add_timeout(0.7, reapply)
+mp.add_timeout(2.5, reapply)
+mp.register_event('file-loaded', function() reapply(); end)   -- only does something for the first loads; a later user toggle sets user_toggled
+
 mp.observe_property('ontop', 'bool', function(_, value)
-    save_state(value)
+    if mp.get_time() < ignore_until then expected = value; return end
+    if type(value) == 'boolean' and value ~= expected then user_toggled = true end
+    expected = value
+    if user_toggled then save_state(value) end
 end)
 
 mp.register_event('shutdown', function()

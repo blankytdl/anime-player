@@ -77,7 +77,7 @@ public static class InputHelp
         Add(b, new (_("Video"), _("Increase Saturation"), "add saturation 1", "Ctrl+8"));
         Add(b, new (_("Video"), "-"));
         Add(b, new (_("Video"), _("Take Screenshot"), "async screenshot", "s"));
-        Add(b, new (_("Video"), _("Take Screenshot without subtitles"), "async screenshot video", "S"));
+        Add(b, new (_("Video"), _("Take Screenshot without subtitles"), "script-message ap-shot-nosubs", "S"));
         Add(b, new (_("Video"), _("Toggle Deinterlace"), "cycle deinterlace", "d"));
         Add(b, new (_("Video"), _("Change Aspect Ratio"), "cycle-values video-aspect-override 16:9 4:3 2.35:1 0 -1", "a"));
         Add(b, new (_("Video"), _("Rotate Video"), "cycle-values video-rotate 90 180 270 0", "Ctrl+r"));

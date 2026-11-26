@@ -73,7 +73,7 @@ public class GuiCommand
         ["show-audio-devices"] = args => Player.Command("script-binding select/select-audio-device"), // deprecated
     };
 
-    /// <summary>Queue -> "Add folder...": appends every video of a folder (natural file-name order, sub-folders included) to the playlist.</summary>
+    /// <summary>Add folder...: appends every video of a folder (natural file-name order, sub-folders included) to the playlist.</summary>
     static void AddFolderToPlaylist(IList<string> args)
     {
         using var dialog = new FolderBrowserDialog();
@@ -93,9 +93,9 @@ public class GuiCommand
                 return;
             }
 
-            // loadFolder=false: only the files we picked; append=true: keep what is already queued
+            // loadFolder=false: only the files we picked; append=true: keep what is already in the playlist
             Player.LoadFiles(files.ToArray(), false, true);
-            Player.CommandV("show-text", "Added " + files.Count + " file(s) to the queue", "2500");
+            Player.CommandV("show-text", "Added " + files.Count + " file(s) to the playlist", "2500");
         }
         catch (Exception ex) { Terminal.WriteError(ex); }
     }

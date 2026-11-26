@@ -23,8 +23,11 @@ local function looks_like_anime()
     return false
 end
 
+local cur_path = nil           -- remembered at file-loaded: the end of a video arrives when the player has already let go of `path`
+local last_pos, last_dur = 0, 0
+
 local function log(event, pos, dur, anime)
-    local path = mp.get_property('path')
+    local path = mp.get_property('path') or cur_path
     if not path then return end
     local f = io.open(LOG, 'ab')
     if not f then return end
@@ -48,7 +51,12 @@ local function maybe_finish()
     end
 end
 
+mp.observe_property('time-pos', 'number', function(_, v) if v and cur_path then last_pos = v end end)
+mp.observe_property('duration', 'number', function(_, v) if v and cur_path then last_dur = v end end)
+
 mp.register_event('file-loaded', function()
+    cur_path = mp.get_property('path')
+    last_pos, last_dur = 0, mp.get_property_number('duration') or 0
     anime = looks_like_anime()
     finished_logged = false
     if anime then log('start', 0, mp.get_property_number('duration') or 0, true) end
@@ -56,15 +64,23 @@ end)
 
 mp.observe_property('percent-pos', 'number', function(_, v) if v and v >= THRESHOLD * 100 then maybe_finish() end end)
 mp.observe_property('eof-reached', 'bool', function(_, v)
-    if v and not finished_logged then
+    -- only at the real end: a late "eof-reached" of the PREVIOUS file must not log the file that was just opened as finished
+    if v and not finished_logged and cur_path and last_dur > 5 and last_pos >= last_dur - 3 then
         finished_logged = true
-        log('finished', mp.get_property_number('time-pos') or 0, mp.get_property_number('duration') or 0, anime)
+        log('finished', last_pos, last_dur, anime)
+    end
+end)
+
+mp.register_event('end-file', function(e)
+    if e.reason == 'eof' and cur_path and not finished_logged and last_dur > 0 then
+        finished_logged = true
+        log('finished', math.max(last_pos, last_dur - 0.1), last_dur, anime)   -- played to its end: counts for the library
     end
 end)
 
 mp.add_hook('on_unload', 50, function()
-    local pos = mp.get_property_number('time-pos') or 0
-    local dur = mp.get_property_number('duration') or 0
+    local pos = mp.get_property_number('time-pos') or last_pos
+    local dur = mp.get_property_number('duration') or last_dur
     if not finished_logged and dur > 0 and pos >= dur * THRESHOLD then
         finished_logged = true
         log('finished', pos, dur, anime)

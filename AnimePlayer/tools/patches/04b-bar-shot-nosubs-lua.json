@@ -1,0 +1,7 @@
+{
+ "id": "bar-shot-nosubs-lua",
+ "file": "script-opts/uosc.conf",
+ "marker": "ap-shot-nosubs",
+ "find": "command:add_a_photo:screenshot video?Screenshot without subtitles",
+ "replace": "command:add_a_photo:script-message ap-shot-nosubs?Screenshot without subtitles"
+}

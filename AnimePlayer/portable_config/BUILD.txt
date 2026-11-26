@@ -1,0 +1,75 @@
+# Build 37 (Lua simulated with mock mpv: tools\tests\tf_test.lua sections A-H + shot_test.lua A-J, ffmpeg commands run for real on a 10 min 1080p file; not run on Windows / real mpv)
+38. SCREENSHOT WITHOUT SUBTITLES rewritten (scripts\ap-screenshot.lua). The old one never checked that a file appeared, so a failed shot looked like "nothing happens".
+    Now: subtitles off -> `screenshot-to-file <screenshot-directory>\<video>_<time>_nosubs.png` with the video flag -> subtitles back exactly as they were -> the file is CHECKED.
+    If mpv fails or writes no file, the same frame is cut from the video file with ffmpeg.exe (never draws soft subtitles; plain frame, no shaders). The on-screen message says which
+    way was used and the file name; everything is also written to ap-screenshot.log next to mpv.conf. A shot that never reports back can no longer block the key (20 s).
+    When NO subtitle track was active the message says "text in the picture is burned into the video" - hard subs cannot be removed by any player.
+    Options (script-opts\ap-screenshot.conf, optional file): method=auto|mpv|ffmpeg  (ffmpeg = always cut from the file, mpv = never fall back), wait=0.3.
+    If it still shows text: send ap-screenshot.log and say whether the message mentioned burned-in subtitles.
+39. SEEK-BAR PREVIEW slow to update. Measured with real ffmpeg: one hover frame costs ~0.3-0.4 s whatever the flags (threads / probesize change almost nothing), and every NEW
+    position waited for its own cut. Now (scripts-extra\thumbfast.lua): 2-3 s after a video starts a coarse grid of up to 64 frames (about one per 20-25 s; start, middle, quarters,
+    eighths ... so the whole video is covered after a few seconds) is cut in the BACKGROUND, one small keyframe cut at a time (~20 s total, a few MB read - not the whole file like
+    the old sprite pass). Hovering shows the nearest cached frame AT ONCE, the keyframe frame follows, the exact frame swaps in after 0.2 s of rest (was 0.25 s). The background cut
+    is stopped when the mouse touches the bar and waits 0.8 s after the last movement; leaving the bar does not kill it. A position that is not cached yet shows the nearest
+    cached frame instead of the old unrelated one. prefetch=no in thumbfast.conf switches it off (prefetch_max, prefetch_delay also there).
+    Not changed: the exact frame still needs its own ffmpeg run, so after the mouse rests the final picture appears ~0.5 s later.
+40. WINDOWS 11 COMPACT RIGHT-CLICK MENU (first menu, next to File Locksmith / PowerRename / WinRAR): "Play with AnimePlayer" / "Add to AnimePlayer playlist"
+    (several files selected: "Play all ..." / "Add all ...") for every video and audio type. Windows 11 only loads such entries from a shell extension of a program with a
+    package identity, so: tools\shell-ext\AnimePlayerShell.cpp (IExplorerCommand DLL, the same command lines as the classic-menu entries) + a tiny signed SPARSE package
+    (identity only; the DLL and mpvnet.exe stay in the player folder). Built by the GitHub workflow (new steps "Set up MSVC" + "Build Windows 11 right-click menu extension",
+    continue-on-error so a failure there never blocks the player). The zip then holds AnimePlayerShell.dll (next to mpvnet.exe) and context-menu\ with the .msix, the .cer
+    and Register-ContextMenu.bat / Unregister-ContextMenu.bat. INSTALL: double-click Register-ContextMenu.bat once (administrator: it trusts the certificate); run it again after
+    moving the folder or installing a newer build. NOT compiled or run anywhere yet (no MSVC / Windows here): if the CI step fails, send its log; if the entries do not show,
+    send context-menu\register.log. The local build.bat does NOT build it (needs MSVC + Windows SDK); the classic-menu entries and the full-menu .bat are unchanged.
+
+# Build 36 (Lua simulated with mock mpv: tools\tests\playlist_tools_test.lua + watched_test.lua; not run on Windows)
+35. The QUEUE is removed (tab, Queue tools button, Add to queue button, queue engine, hidden copy of the next video, queue.json handling). scripts\ap-queue.lua keeps
+    its name but only looks after the Playlist now. The Playlist menu keeps its Playlist tab and the tool buttons (Add videos, Remove watched, Sort, Shuffle, Remove all).
+    Old queue.json / queue-list.json files are simply not used any more (nothing is deleted).
+36. PLAY LATER = the videos go to the END of the playlist: drag & drop "Play later", Explorer "Add all to AnimePlayer playlist", the new "Add videos" button (files /
+    folder / clipboard, also Ctrl+Alt+Q). Only video, gif and audio files, a file that is already listed is skipped. With nothing playing the first one starts.
+37. FREEZES / STUTTER (also on an SSD): durations were read with 3 ffprobe processes at once over EVERY file of the playlist 1.2 s after every change - right when a video
+    starts. Now: automatic reading only while nothing plays (paused / no video), ONE file at a time with a short pause between files; "Read all durations" / sort by length
+    read one file at a time while a video plays. durations.json is written at most every 10 s (was after every file). The playlist is read once per change (0.5 s debounce)
+    instead of by several observers. The resume position is written every 15 s + when paused (was every 2 s: a new file on disk every other second). Option
+    probe_while_playing=yes in script-opts\ap-queue.conf restores background reading during playback.
+38. GREY-OUT (watched) did not work on some finished videos: it needed the player to be within 3 s of the end. Now like the library: 85 % or the last 3 s, whether the video
+    ended by itself or you pressed Next / closed the player in the credits (opening / resuming near the end does not count). Both spellings of a relative path are stored.
+    Videos that watched.log already holds as finished are greyed too (read once, a few seconds after the start).
+
+# Build 35 (Lua simulated with mock mpv: tools\tests\queue_filter_test.lua + the older queue tests; not run on Windows)
+31. Playlist tab and Queue tab: video formats + gif + AUDIO (mp3 flac m4a mka mp2 ogg opus aac ac3 dts wav wma ape alac wv). Video list: (mkv mp4 avi webm mov m4v ts m2ts mts flv f4v wmv asf mpg mpeg mpe vob ogv 3gp 3g2 divx rm rmvb mxf gif).
+    Pictures, subtitles, text and files without an extension are no longer accepted. Links (http ...) are kept (allow_urls=no in
+    script-opts\ap-queue.conf = local video files only). Applies to: Add files / folder / clipboard, drag & drop "Play later", the saved queue and played list at
+    start, and mpv's own playlist (autoload, Open, "Add to playlist"). The video that is PLAYING is never removed, even if it is some other file type.
+32. Both tabs remove duplicates by themselves (same file, whatever the letter case / slash direction): the Queue when something is added or loaded, the Playlist
+    0.35 s after it changed. Adding a video that is already queued says "N already in the queue". The queue's hidden copy of the next video and the copy that is playing
+    are the only deliberate duplicates and are never touched. Files on disk are never touched. Switch off: dedupe=no / video_only=no in script-opts\ap-queue.conf.
+33. Playlist and Queue are separate lists now: a video that plays from the Playlist is no longer marked "playing now" in the Queue tab (same file queued), and a queue video
+    is no longer marked in the Playlist tab (uosc patches 99 / 99b removed; the Queue copy is hidden there anyway).
+34. Playlist button / key while a Queue video plays opens the Queue tab ONCE: the third redundant trigger (uosc patch 98) is removed, the Lua trigger only fires when the
+    Playlist menu is still the open one. The "Playlist" tab inside the Queue menu now really opens the playlist (the key gate used to close the menu instead).
+
+# Build 34
+26. Screenshot WITHOUT subtitles still had subtitles. mpv's `screenshot video` is only "typically" subtitle-free (depends on the video output; with gpu-next /
+    blend-subtitles the subs can be drawn into the frame). New scripts/ap-screenshot.lua: subtitles are switched off, one frame is drawn, `screenshot video` is taken,
+    and sub-visibility / secondary-sub-visibility are restored to exactly what they were (also when the shot fails). Bound to F6, Ctrl+e, the control-bar button
+    (uosc patch 04b + tested overlay) and Video > Take Screenshot without subtitles. The normal screenshot (with subtitles) is unchanged.
+    Hard (burned-in) subtitles are part of the picture and cannot be removed.
+27. Seek-bar preview (thumbfast.lua), long videos: the thumbnail froze until the mouse left the bar. Cause: every frame was cut with an exact seek (slow in a long
+    file), jobs ran one after another and could not be cancelled, and a frame that finished after the mouse had moved was thrown away. Now: hover frames use a keyframe
+    seek (-noaccurate_seek, instant), a late frame is still shown at the current mouse position and the newest request is cut right after it, an exact-frame job is
+    cancelled when the mouse moves, a 3 s / 8 s watchdog aborts a hanging ffmpeg, and a frame that cannot be cut (end of file, short video) shows the nearest cached one.
+28. thumbfast: the "exact frame when the mouse rests" never ran - its timer called `refine`, which did not exist yet (nil global). Fixed.
+Tests (mock mpv, tools\tests): tf_test.lua + shot_test.lua. Not run on Windows.
+
+# Build 34 (2)
+29. Dragging the progress bar to the very end left the video stuck on its last frame instead of starting the next one. uosc pauses while the bar is dragged and restores the
+    pause state on release; a seek to the very end while paused leaves mpv at end-of-file without moving on. New scripts/ap-eof-guard.lua: end reached + not paused + still the
+    same playlist entry after 0.5 s -> `playlist-next force` (what mpv does at a normal end; the queue's staged video is simply the next entry, so the queue / playlist
+    order is respected). The last video of the list stays on its last frame as before; a video you paused yourself is never skipped; a normal end is untouched.
+30. Same file in the Playlist and in the Queue: which tab opens (Playlist key / button) and the "queue video playing" flag followed the FILE NAME (a fallback that was never
+    cleared), so a playlist video with the same name as one that had been started from the Queue opened the Queue tab, and the other way round. It now follows the playlist
+    ENTRY that is playing (the queue's own copy), so a queue video stays "Queue" and a playlist video stays "Playlist" even when both are the same file. The end of a queue video
+    still continues with the next queue video, then with the playlist after the entry the queue started from; a playlist video continues with the playlist.
+    Test: tools\tests\queue_order_test.lua (SAME NAME 1-3; build 33 fails 2 of them), eof_test.lua. Not run on Windows.

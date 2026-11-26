@@ -2,14 +2,14 @@
 --  * the position of every video you watched for >= 10 s is saved every 2 s, when the file is unloaded
 --    (next / stop / open another) and on shutdown, so a crash or power cut loses at most 2 s;
 --  * the uosc "Resume" button (script-message ap-resume-now) jumps back to it - or, with nothing loaded,
---    re-opens the last video (and its saved queue) at that position;
+--    re-opens the last video at that position;
 --  * a new file always starts playing (keep-open leaves the player paused after the previous video ended).
 -- Data file: resume.json  { "Last": "<path>", "Entries": { "<path>": { "Pos": s, "Dur": s, "Updated": unix } } }
 local mp = require 'mp'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
-local opts = { hint = true, interval = 2, min_pos = 10, end_margin = 20, autostart = true, idle_dblclick = true, auto_resume = true }
+local opts = { hint = true, interval = 15, min_pos = 10, end_margin = 20, autostart = true, idle_dblclick = true, auto_resume = true }
 require('mp.options').read_options(opts, 'ap-resume')
 
 local cfg = mp.command_native({ 'expand-path', '~~/' })
@@ -177,7 +177,6 @@ local function resume_now()
         mp.commandv('loadfile', last)
     end
     mp.osd_message('Resuming ' .. fmt(e.Pos), 2)
-    mp.commandv('script-message', 'ap-queue-attach', last) -- re-attach the saved queue around it
 end
 
 local function forget()
@@ -281,6 +280,8 @@ end)
 mp.add_hook('on_unload', 50, snapshot)
 mp.register_event('shutdown', snapshot)
 mp.add_periodic_timer(opts.interval, snapshot)
+-- (build 36) the position was written to disk every 2 s; now every 15 s (an SSD / antivirus does not get a new file every other second), and at once when the video is paused
+mp.observe_property('pause', 'bool', function(_, v) if v then snapshot() end end)
 
 load()
 prune()

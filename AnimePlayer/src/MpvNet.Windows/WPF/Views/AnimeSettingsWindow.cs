@@ -80,7 +80,7 @@ public class AnimeSettingsWindow : Window
         ready = true;
 
         // ---- behaviour ----
-        var idle = new CheckBox { Content = "Stay open after the last video (keeps the queue and Resume available)", Foreground = Brushes.White, IsChecked = true, Margin = new Thickness(0, 6, 0, 2) };
+        var idle = new CheckBox { Content = "Stay open after the last video (keeps Resume available)", Foreground = Brushes.White, IsChecked = true, Margin = new Thickness(0, 6, 0, 2) };
         try { idle.IsChecked = !File.ReadAllText(AnimeCore.ConfigFile("overrides.conf")).Contains("idle=no"); } catch { }
         sp.Children.Add(idle);
 
