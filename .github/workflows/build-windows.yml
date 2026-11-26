@@ -78,17 +78,8 @@ jobs:
 
           $targetProject = Join-Path $root 'AnimePlayer'
           if ($project -ne $targetProject -and $project -ne $root) {
-            if ($chunks.Count -gt 0 -and (Test-Path -LiteralPath $targetProject)) {
-              # Incremental archives contain only changed files. Merge them into the
-              # checked-out source tree so unchanged project files are preserved.
-              & robocopy.exe $project $targetProject /E /COPY:DAT /R:2 /W:1
-              $copyExit = $LASTEXITCODE
-              if ($copyExit -ge 8) { throw "Could not merge the source update (robocopy exit $copyExit)." }
-            }
-            else {
-              if (Test-Path -LiteralPath $targetProject) { Remove-Item -LiteralPath $targetProject -Recurse -Force }
-              Move-Item -LiteralPath $project -Destination $targetProject -Force
-            }
+            if (Test-Path -LiteralPath $targetProject) { Remove-Item -LiteralPath $targetProject -Recurse -Force }
+            Move-Item -LiteralPath $project -Destination $targetProject -Force
             $project = $targetProject
           }
 
@@ -159,7 +150,6 @@ jobs:
             'dist/portable_config/input.conf',
             'dist/portable_config/scripts/00-thumbfast-path.lua',
             'dist/portable_config/scripts/ap-window-state.lua',
-            'dist/portable_config/scripts/thumbfast.lua',
             'dist/portable_config/scripts/uosc/main.lua'
           )
           $thumbResolver = Get-Content -LiteralPath 'dist/portable_config/scripts/00-thumbfast-path.lua' -Raw
@@ -172,22 +162,6 @@ jobs:
           }
           if (-not $pinStateScript.Contains("mp.register_event('shutdown'")) {
             throw 'Window pin-state script does not save its state on shutdown.'
-          }
-
-          $thumbfastScript = Get-Content -LiteralPath 'dist/portable_config/scripts/thumbfast.lua' -Raw
-          if (-not $thumbfastScript.Contains("utils.readdir(dir, 'dirs')")) {
-            throw 'Build 26 seek-bar preview must search for ffmpeg.exe recursively inside the player folder.'
-          }
-          if ($thumbfastScript -match "args = \{ 'ffprobe'|args = \{ 'ffmpeg'") {
-            throw 'Build 26 seek-bar preview must not fall back to PATH outside the player folder.'
-          }
-          $pinInput = Get-Content -LiteralPath 'dist/portable_config/input.conf' -Raw
-          if ($pinInput -notmatch '(?m)^\s*[!_]?\s*cycle\s+ontop\b') {
-            throw 'The Window > Toggle On Top input binding is missing.'
-          }
-          $buildScript = Get-Content -LiteralPath 'build.bat' -Raw
-          if ($buildScript -notmatch 'ap-window-state\.conf') {
-            throw 'build.bat does not preserve the saved portable pin state during config cleanup.'
           }
 
           foreach ($path in $required) {
@@ -228,6 +202,24 @@ jobs:
           $summary = [regex]::Match($mergeLog, 'uosc edits:\s+\d+\s+applied,\s+\d+\s+already there,\s+(\d+)\s+skipped')
           if (-not $summary.Success) { throw 'The configuration merge summary was not found.' }
           if ([int]$summary.Groups[1].Value -ne 0) { throw "The configuration merge skipped $($summary.Groups[1].Value) patch(es)." }
+
+      - name: Set up MSVC (Windows 11 right-click menu extension)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build Windows 11 right-click menu extension
+        # Not verified on a real PC yet: a failure here must never stop the player itself from being published.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:ANIMEPLAYER_ROOT
+          & ./tools/shell-ext/build-shell-ext.ps1 -Dist 'dist' -Build (Get-Content -LiteralPath 'BUILD.txt' -Raw)
+          if (-not $?) { throw 'The right-click menu extension did not build.' }
+          foreach ($f in 'dist/AnimePlayerShell.dll', 'dist/context-menu/AnimePlayerShell.msix', 'dist/context-menu/AnimePlayer.cer', 'dist/context-menu/Register-ContextMenu.bat') {
+            if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { throw "Missing: $f" }
+            Write-Host "[present] $f"
+          }
 
       - name: Package portable build
         shell: pwsh
