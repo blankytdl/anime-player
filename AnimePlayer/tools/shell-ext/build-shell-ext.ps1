@@ -40,7 +40,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dll)) { throw "cl.exe 
 
 # ---------------------------------------------------------------- 2. manifest (CLSIDs come from the C++ source)
 $src = Get-Content -LiteralPath $cpp -Raw
-$ids = [regex]::Matches($src, 'DEFINE_COMMAND\(\w+,\s*"([0-9A-Fa-f\-]{36})"') | ForEach-Object { '{' + $_.Groups[1].Value.ToUpper() + '}' }
+$ids = [regex]::Matches($src, 'DEFINE_COMMAND\(\w+,\s*"([0-9A-Fa-f\-]{36})"') | ForEach-Object { $_.Groups[1].Value.ToUpper() }
 if ($ids.Count -ne 2) { throw "Expected 2 DEFINE_COMMAND CLSIDs in AnimePlayerShell.cpp, found $($ids.Count)." }
 $video = 'mkv mp4 avi mov flv mpg webm wmv ts vob 264 265 asf avc avs dav h264 h265 hevc m2t m2ts m2v m4v mpeg mpv mts y4m'
 $audio = 'mp3 flac m4a mka mp2 ogg opus aac ac3 dts dtshd dtshr dtsma eac3 mpa mpc thd w64 wav'
@@ -74,6 +74,7 @@ $manifest = @"
   </Dependencies>
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
   <Applications>
     <Application Id="AnimePlayer" Executable="mpvnet.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
@@ -101,6 +102,62 @@ $itemTypes
 $pkg = Join-Path $work 'pkg'
 New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'Assets') | Out-Null
 [System.IO.File]::WriteAllText((Join-Path $pkg 'AppxManifest.xml'), $manifest, (New-Object System.Text.UTF8Encoding($false)))
+
+# Validate the generated XML and manifest GUID syntax before invoking MakeAppx.
+try { [xml]$manifestXml = Get-Content -LiteralPath (Join-Path $pkg 'AppxManifest.xml') -Raw }
+catch { throw "Generated AppxManifest.xml is not well-formed XML: $($_.Exception.Message)" }
+foreach ($id in $ids) {
+    if ($id -notmatch '^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}
+
+# logos (plain coloured squares; the package never shows in the Start menu: AppListEntry="none")
+Add-Type -AssemblyName System.Drawing
+foreach ($a in @(@('StoreLogo', 50), @('Square44x44Logo', 44), @('Square150x150Logo', 150))) {
+    $bmp = New-Object System.Drawing.Bitmap([int]$a[1], [int]$a[1])
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([System.Drawing.Color]::FromArgb(255, 124, 77, 255))
+    $g.Dispose()
+    $bmp.Save((Join-Path $pkg ("Assets\" + $a[0] + '.png')), [System.Drawing.Imaging.ImageFormat]::Png)
+    $bmp.Dispose()
+}
+
+# ---------------------------------------------------------------- 3. pack + sign (a fresh self-signed certificate per build; Register-ContextMenu.ps1 trusts it)
+$makeappx = Find-SdkTool 'makeappx.exe'
+$signtool = Find-SdkTool 'signtool.exe'
+$msix = Join-Path $work 'AnimePlayerShell.msix'
+& $makeappx pack /d $pkg /p $msix /nv /o
+if ($LASTEXITCODE -ne 0) { throw "makeappx failed (exit $LASTEXITCODE)." }
+
+$cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=AnimePlayer' -KeyUsage DigitalSignature -FriendlyName 'AnimePlayer right-click menu' `
+    -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddYears(10) `
+    -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+try {
+    $cer = Join-Path $work 'AnimePlayer.cer'
+    Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+    $pfxPass = [guid]::NewGuid().ToString('N')
+    $pfx = Join-Path $work 'sign.pfx'
+    Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString -String $pfxPass -Force -AsPlainText) | Out-Null
+    & $signtool sign /fd SHA256 /f $pfx /p $pfxPass $msix
+    if ($LASTEXITCODE -ne 0) { throw "signtool failed (exit $LASTEXITCODE)." }
+    Remove-Item -LiteralPath $pfx -Force
+}
+finally {
+    Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $cert.Thumbprint) -Force -ErrorAction SilentlyContinue
+}
+
+# ---------------------------------------------------------------- 4. publish into dist
+Copy-Item -LiteralPath $dll -Destination (Join-Path $Dist 'AnimePlayerShell.dll') -Force
+Copy-Item -LiteralPath $msix -Destination $ctx -Force
+Copy-Item -LiteralPath $cer -Destination $ctx -Force
+foreach ($f in 'Register-ContextMenu.ps1', 'Unregister-ContextMenu.ps1', 'Register-ContextMenu.bat', 'Unregister-ContextMenu.bat', 'README.txt') {
+    Copy-Item -LiteralPath (Join-Path $here $f) -Destination $ctx -Force
+}
+Remove-Item -LiteralPath $work -Recurse -Force
+Write-Host "Context-menu extension built: $($types.Count) file types, package version 1.0.$Build.0"
+) {
+        throw "Invalid unbraced COM CLSID in generated AppxManifest.xml: $id"
+    }
+}
+if ($manifest -match 'Clsid="\{') { throw 'Generated AppxManifest.xml contains a braced CLSID; AppX manifest GUID attributes must be unbraced.' }
 
 # logos (plain coloured squares; the package never shows in the Start menu: AppListEntry="none")
 Add-Type -AssemblyName System.Drawing
