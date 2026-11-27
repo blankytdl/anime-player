@@ -1,4 +1,4 @@
-**Build 25** (round 25) - see ROUND25-FIXES.md for the full list; the number lives in BUILD.txt.
+**AnimePlayer build 37** - current behaviour and verification status are recorded below; the build number is stored in BUILD.txt.
 
 # AnimePlayer rev9 - round 6 (see round 5 below for the earlier list)
 
