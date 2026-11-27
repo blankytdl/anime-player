@@ -1,4 +1,4 @@
-**AnimePlayer build 25** (round 25) - the build number is in `BUILD.txt`, in the About window, in the exe's file properties and shown for a moment when the player starts. What changed: `ROUND25-FIXES.md`.
+**AnimePlayer build 37** - the build number is in `BUILD.txt`, in the About window, in the exe's file properties and shown for a moment when the player starts. Current behaviour and verification notes: `STATUS.md`. Build history: `ROUND25-FIXES.md` and `ROUND26-FIXES.md`.
 
 # AnimePlayer + AnimeLibrary (revision 7)
 
